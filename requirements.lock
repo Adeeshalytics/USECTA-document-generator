@@ -20,6 +20,8 @@ click==8.5.0
     #   uvicorn
 docxtpl==0.20.2
     # via -r requirements.txt
+et-xmlfile==2.0.0
+    # via openpyxl
 h11==0.16.0
     # via uvicorn
 httptools==0.8.0
@@ -54,6 +56,8 @@ numpy==2.5.3
     #   pandas
     #   pydeck
     #   streamlit
+openpyxl==3.1.5
+    # via -r requirements.txt
 packaging==26.3
     # via
     #   altair

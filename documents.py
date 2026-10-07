@@ -32,6 +32,9 @@ FIELDS = {
     "signatory_name": "Signatory name", "signatory_designation": "Signatory designation",
     "agreement_subject": "Agreement subject", "agreement_terms": "Agreement terms",
     "delivery_terms": "Delivery terms", "currency": "Currency",
+    "bid_valid_until": "Bid acceptance validity date (set in Tenders & items)",
+    "tender_items": "Selected tender item list", "agreement_item_names": "Selected agreement items",
+    "quotation_items": "Quotation item list",
 }
 COMPUTED = {"items", "grand_total"}
 CENT = Decimal("0.01")
@@ -55,6 +58,20 @@ class Store:
                     id TEXT PRIMARY KEY, name TEXT NOT NULL, filename TEXT NOT NULL,
                     required TEXT NOT NULL, created_at TEXT NOT NULL);
             """)
+            columns = {r["name"] for r in con.execute("PRAGMA table_info(templates)")}
+            for column, default in [("workflow", "legacy"), ("scope", "batch")]:
+                if column not in columns:
+                    con.execute(f"ALTER TABLE templates ADD COLUMN {column} TEXT NOT NULL DEFAULT '{default}'")
+            con.executescript("""
+                CREATE TABLE IF NOT EXISTS tenders (reference TEXT PRIMARY KEY, payload TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS tender_items (
+                    reference TEXT NOT NULL, item_number TEXT NOT NULL, description TEXT NOT NULL,
+                    document_fee TEXT NOT NULL, PRIMARY KEY (reference, item_number));
+                CREATE TABLE IF NOT EXISTS suppliers (id TEXT PRIMARY KEY, name TEXT NOT NULL, payload TEXT NOT NULL);
+            """)
+            item_columns = {r["name"] for r in con.execute("PRAGMA table_info(tender_items)")}
+            if "quantity_kg" not in item_columns:
+                con.execute("ALTER TABLE tender_items ADD COLUMN quantity_kg TEXT NOT NULL DEFAULT ''")
 
     def connect(self):
         con = sqlite3.connect(self.db)
@@ -90,7 +107,7 @@ class Store:
     def template_path(self, template):
         return self.templates_dir / template["filename"]
 
-    def add_template(self, name, content, required=(), key=None):
+    def add_template(self, name, content, required=(), key=None, workflow="legacy", scope="batch"):
         if not name.strip():
             raise ValueError("Give the template a name.")
         validate_word(content)
@@ -104,7 +121,49 @@ class Store:
         path = self.templates_dir / f"{key}.docx"
         path.write_bytes(content)
         with self.connect() as con:
-            con.execute("INSERT INTO templates VALUES (?, ?, ?, ?, ?)", (key, name.strip(), path.name, json.dumps(list(required)), datetime.now(timezone.utc).isoformat()))
+            con.execute("INSERT INTO templates (id, name, filename, required, created_at, workflow, scope) VALUES (?, ?, ?, ?, ?, ?, ?)", (key, name.strip(), path.name, json.dumps(list(required)), datetime.now(timezone.utc).isoformat(), workflow, scope))
+        return key
+
+    def set_template_usage(self, key, workflow, scope):
+        if workflow not in {"legacy", "tender", "quotation"} or scope not in {"batch", "item", "supplier", "tender"}:
+            raise ValueError("Choose a supported document type and scope.")
+        with self.connect() as con:
+            con.execute("UPDATE templates SET workflow=?, scope=? WHERE id=?", (workflow, scope, key))
+
+    def tenders(self):
+        with self.connect() as con:
+            return {r["reference"]: json.loads(r["payload"]) for r in con.execute("SELECT * FROM tenders ORDER BY reference")}
+
+    def save_tender(self, reference, payload):
+        from workflows import validate_tender
+        reference = reference.strip()
+        validate_tender(reference, payload)
+        with self.connect() as con:
+            con.execute("INSERT INTO tenders VALUES (?, ?) ON CONFLICT(reference) DO UPDATE SET payload=excluded.payload", (reference, json.dumps(payload)))
+
+    def catalog(self, reference):
+        with self.connect() as con:
+            return [dict(r) for r in con.execute("SELECT item_number, description, document_fee, quantity_kg FROM tender_items WHERE reference=? ORDER BY length(item_number), item_number", (reference,))]
+
+    def save_catalog(self, reference, rows):
+        from workflows import validate_catalog
+        cleaned = validate_catalog(rows)
+        with self.connect() as con:
+            if not con.execute("SELECT 1 FROM tenders WHERE reference=?", (reference,)).fetchone():
+                raise ValueError("Save this tender before adding its item catalogue.")
+            con.execute("DELETE FROM tender_items WHERE reference=?", (reference,))
+            con.executemany("INSERT INTO tender_items (reference,item_number,description,document_fee,quantity_kg) VALUES (?, ?, ?, ?, ?)", [(reference, r["item_number"], r["description"], r["document_fee"], r["quantity_kg"]) for r in cleaned])
+
+    def suppliers(self):
+        with self.connect() as con:
+            return {r["id"]: json.loads(r["payload"]) for r in con.execute("SELECT * FROM suppliers ORDER BY name")}
+
+    def save_supplier(self, payload, key=None):
+        if not payload.get("supplier_name", "").strip():
+            raise ValueError("Enter the supplier name.")
+        key = key or uuid.uuid4().hex
+        with self.connect() as con:
+            con.execute("INSERT INTO suppliers VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, payload=excluded.payload", (key, payload["supplier_name"].strip(), json.dumps(payload)))
         return key
 
 
@@ -137,6 +196,16 @@ def normalize_word(content):
 
 
 def template_variables(content):
+    with zipfile.ZipFile(io.BytesIO(content)) as archive:
+        for name in archive.namelist():
+            if name.startswith("word/") and name.endswith(".xml"):
+                from lxml import etree
+                root = etree.fromstring(archive.read(name))
+                ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+                for paragraph in root.findall(".//w:p", ns):
+                    text = "".join(paragraph.xpath(".//w:t/text()", namespaces=ns))
+                    if re.search(r"(?<!\{)\{\s*[A-Za-z_]\w*\s*\}\}", text):
+                        raise ValueError("A placeholder is missing its opening brace. Use {{ field_name }}.")
     tpl = DocxTemplate(io.BytesIO(normalize_word(content)))
     return tpl.get_undeclared_template_variables(jinja_env=SandboxedEnvironment())
 
@@ -177,11 +246,28 @@ def render_document(content, context, required=()):
     missing = [x for x in required if not context.get(x) or (isinstance(context[x], str) and not context[x].strip())]
     if missing:
         raise ValueError("Complete required fields: " + ", ".join(FIELDS.get(x, x) for x in missing))
-    template = DocxTemplate(io.BytesIO(normalize_word(content)))
+    source = normalize_word(content)
+    template = DocxTemplate(io.BytesIO(source))
     template.render(context, jinja_env=SandboxedEnvironment(undefined=StrictUndefined), autoescape=True)
     output = io.BytesIO()
     template.save(output)
-    return output.getvalue()
+    # python-docx reserializes many unrelated package parts on save. Our context
+    # contains plain values only, so filling fields needs no new styles, images,
+    # relationships, or settings. Keep those original parts byte-for-byte.
+    preserved = io.BytesIO()
+    with zipfile.ZipFile(io.BytesIO(source)) as original, zipfile.ZipFile(io.BytesIO(output.getvalue())) as rendered, zipfile.ZipFile(preserved, "w", zipfile.ZIP_DEFLATED) as final:
+        for member in original.infolist():
+            data = original.read(member.filename)
+            replace = member.filename == "word/document.xml"
+            if re.fullmatch(r"word/(header\d*|footer\d*|footnotes)\.xml", member.filename):
+                from lxml import etree
+                xml = etree.fromstring(data)
+                text = "".join(xml.xpath("//*[local-name()='t']/text()"))
+                replace = "{{" in text or "{%" in text
+            if replace and member.filename in rendered.namelist():
+                data = rendered.read(member.filename)
+            final.writestr(member, data)
+    return preserved.getvalue()
 
 
 def pdf_available():

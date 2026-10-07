@@ -1,0 +1,32 @@
+[
+  {
+    "filename": "Bid Document.docx",
+    "name": "Bid Document",
+    "scope": "batch"
+  },
+  {
+    "filename": "AGENCY AGREEMENT.docx",
+    "name": "AGENCY AGREEMENT",
+    "scope": "supplier"
+  },
+  {
+    "filename": "Cover letter.docx",
+    "name": "Cover letter",
+    "scope": "item"
+  },
+  {
+    "filename": "Bid Form.docx",
+    "name": "Bid Form",
+    "scope": "item"
+  },
+  {
+    "filename": "Envelop covers.docx",
+    "name": "Envelop covers",
+    "scope": "tender"
+  },
+  {
+    "filename": "Authorised Personnal.docx",
+    "name": "Authorised Personnal",
+    "scope": "batch"
+  }
+]

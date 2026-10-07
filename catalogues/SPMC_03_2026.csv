@@ -1,0 +1,51 @@
+item_number,description,document_fee,quantity_kg
+1,Atorvastatin Calcium IP,8000.00,1000
+2,Benzhexol Hydrochloride BP (Trihexyphenidyl Hydrochloride BP),500.00,50
+3,Bisoprolol Fumarate BP,1000.00,50
+4,Carbamazepine BP,10000.00,2500
+5,Ciprofloxacin Hydrochloride USP,6000.00,3000
+6,Clarithromycin USP,19000.00,1500
+7,Diethylcarbamazine Citrate BP,500.00,100
+8,Diltiazem Hydrochloride USP,6000.00,1000
+9,Enalapril Maleate USP,4000.00,250
+10,Famotidine USP,7000.00,1500
+11,Gabapentin USP,4000.00,2000
+12,Gliclazide BP,41000.00,16000
+13,Loratadine USP,1000.00,50
+14,Losartan Potassium BP,17000.00,6000
+15,"Mebendazole USP (Polymorph Type ""A"")",4000.00,1000
+16,Metronidazole USP,1000.00,600
+17,Phenoxymethylpenicillin Potassium BP (Compacted powder),9000.00,2500
+18,Prednisolone BP,6000.00,300
+19,Propranolol Hydrochloride BP,2000.00,800
+20,Salbutamol Sulphate BP,3000.00,300
+21,Sulfamethoxazole BP,2000.00,1000
+22,Spironolactone USP,15000.00,1000
+23,Theophylline Anhydrous USP,3000.00,1000
+24,Trifluoperazine Hydrochloride BP,2000.00,50
+25,Trimethoprim BP,500.00,200
+26,Ammonio Methacrylate Copolymer (Type B) USP,8000.00,1500
+27,Calcium Carbonate BP,500.00,100
+28,Calcium Sulphate Dihydrate BP,500.00,1000
+29,Colloidal Silicon Dioxide USP / Colloidal Anhydrous Silica BP,500.00,500
+30,Croscarmellose Sodium BP,500.00,100
+31,Crospovidone BP or Polyvinyl Polypyrrolidone PVPP BP (KOLLIDONE CL-F),500.00,200
+32,Di-Basic Calcium Phosphate (Dihydrate) BP / USP,2000.00,4000
+33,Hydroxypropylcellulose (L-Type) USNF / USP,4000.00,500
+34,Hypromellose 2910 USP,2000.00,1500
+35,Lactose (ANHYDROUS) USNF/BP/USP,5000.00,10000
+36,"Lactose (100 mesh) BP (Apen. XVI, B)/Lactose Monohydrate USNF/USP",500.00,1500
+37,"Lactose (200 mesh) BP (Apen. XVI, B)/Lactose Monohydrate USNF/USP",11000.00,60000
+38,LM 200 Microcrystalline Cellulose USP/USNF,3000.00,8000
+39,Magnesium Stearate BP,500.00,1500
+40,Maleic Acid BP,1000.00,150
+41,Microcrystalline Cellulose USP/BP,2000.00,8000
+42,Peppermint Oil BP,500.00,50
+43,Polyethylene Glycol USP,500.00,200
+44,Povidone K-30 USP/BP,500.00,1000
+45,Purified Talc BP,500.00,5000
+46,Sodium Lauryl Sulphate BP,500.00,50
+47,Sodium Starch Glycolate (Type A) BP,3000.00,6000
+48,Stearic Acid BP,500.00,400
+49,Titanium Dioxide BP,500.00,500
+50,Zinc Stearate BP,500.00,200

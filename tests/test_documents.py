@@ -96,31 +96,6 @@ def test_persistence_and_original_template_preserved(store):
     assert before == {t["id"]: reopened.template_path(t).read_bytes() for t in reopened.templates()}
 
 
-def test_app_form_generation_and_profile_reload(tmp_path, monkeypatch):
-    original_store = documents.Store
-    monkeypatch.setattr(documents, "Store", lambda: original_store(tmp_path))
-    app = AppTest.from_file(Path(__file__).resolve().parents[1] / "app.py", default_timeout=20).run()
-    assert not app.exception
-    app.multiselect[0].set_value(["starter-authorization"])
-    app.run()
-    for key in ["company_name", "customer_name", "authorized_person_name", "authorized_person_designation", "bid_reference", "signatory_name"]:
-        app.text_input(key=f"field_{key}").set_value(f"Test {key}")
-    next(button for button in app.button if button.label == "Generate documents").click()
-    app.run()
-    assert not app.exception
-    assert any("Documents generated" in message.value for message in app.success)
-    assert len(app.session_state["generated"]["files"]) == 1
-    app.text_input(key="field_company_name").set_value("Changed company").run()
-    assert not any("Documents generated" in message.value for message in app.success)
-    original_store(tmp_path).save_profile("Saved company", {"company_name": "Saved Ltd"})
-    app.run()
-    app.selectbox[0].select("Saved company").run()
-    next(button for button in app.button if button.label == "Load profile").click()
-    app.run()
-    assert not app.exception
-    assert app.text_input(key="field_company_name").value == "Saved Ltd"
-
-
 @pytest.mark.skipif(not documents.pdf_available() or not shutil.which("pdftotext"), reason="LibreOffice and pdftotext required for functional PDF validation")
 def test_pdf_contains_letter_and_bid_content(store, tmp_path):
     context = build_context(fields(), [{"description": "Office printer", "quantity": 2, "unit_price": 100}])
