@@ -52,6 +52,8 @@ Output scopes:
 | Bid form | One form per selected item |
 | Envelope covers | One document for the tender; item selection is optional |
 
+The collection template is named **Bid Document (wider item column)**. Its columns use 12% for Item No, 68% for the item description, and 20% for the document fee. When updating an existing installation, the new template imports as a separate version; select that version instead of the older **Bid Document** template. You can also download the updated `company_templates/Bid Document.docx` from GitHub and upload it in Templates using the new name.
+
 For a bid form, first enter the **bid acceptance validity date** in **Tenders & items**. This is the date until which the offer remains open for acceptance; it is different from the tender closing date. The app does not guess it or add an assumed number of days.
 
 ### Add another tender

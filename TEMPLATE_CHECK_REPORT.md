@@ -51,3 +51,9 @@ No placeholder corrections needed.
 - Bid acceptance validity date remains unconfirmed. Enter it in Tenders & items before generating the Bid Form.
 
 Sample documents use fictitious reference/dates/supplier data and are not for submission.
+
+## Collection table width update
+
+Following the user's requested adjustment, the collection table now allocates 12% of its width to Item No, 68% to Item, and 20% to Document Fee. Its total width remains 9900 twips. Fixed table layout keeps these proportions, and the inherited right paragraph indent is cleared within the table so the narrow columns use their available space. Fonts, borders, branding, margins, and other documents remain unchanged.
+
+The revised template was rendered with item numbers 32, 36, 41, 46, 48, 21, 25, and 50 and checked visually in PDF. The longer descriptions have more room and the Item No header fits on one line. Existing saved templates and runs retain their previous version.
