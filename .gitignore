@@ -4,3 +4,5 @@ __pycache__/
 data/
 *.pyc
 exports/
+
+.streamlit/secrets.toml

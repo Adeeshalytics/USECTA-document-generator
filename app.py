@@ -6,14 +6,21 @@ from pathlib import Path
 
 import streamlit as st
 
-from documents import FIELDS, Store, filename, make_zip, normalize_word, pdf_available, template_variables
+from documents import FIELDS, filename, make_zip, normalize_word, pdf_available, template_variables
 from workflows import (QUOTE_COMPUTED, SUPPLIER_FIELDS, TENDER_COMPUTED, choose_items,
                        create_quotation_template, generate_files, import_catalog, long_date,
                        prepare_workspace, quotation_context, quotation_jobs, tender_context, tender_jobs)
 
 st.set_page_config(page_title="USECTA Documents", page_icon="📄", layout="wide")
-store = Store()
-prepare_workspace(store)
+from cloud_access import workspace_store
+
+store, cloud_mode = workspace_store()
+try:
+    prepare_workspace(store)
+except RuntimeError as exc:
+    st.error(str(exc))
+    st.info("Check Supabase SQL setup and the private document-templates bucket before retrying.")
+    st.stop()
 COMPANY = {"company_name": "USECTA (Pvt) Ltd", "company_address": "33/5 Boruppa Road, Pallegunnepana, Gunnepana Kandy"}
 SCOPES = {"batch": "One document with the selected item list", "item": "One document per item",
           "supplier": "One agreement for the selected supplier and items", "tender": "One document for the tender (e.g. envelopes)"}
@@ -94,7 +101,8 @@ with st.sidebar:
         else:
             st.caption("Earlier app record preserved. Download its details to re-enter in the new workflow.")
     st.divider()
-    st.caption("Everything is stored locally in data/. Back up that folder. Templates and saved versions are kept unchanged.")
+    st.caption("Records and templates are saved in Supabase." if cloud_mode else
+               "Everything is stored locally in data/. Back up that folder. Templates and saved versions are kept unchanged.")
     st.caption("Word output preserves template layout settings. Longer content can change wrapping and page counts; PDF also depends on available fonts.")
 
 tender_tab, quote_tab, catalog_tab, suppliers_tab, templates_tab = st.tabs([

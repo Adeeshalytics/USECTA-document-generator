@@ -138,3 +138,7 @@ python scripts/check_templates.py company_templates --pdf
 Omit `--pdf` if LibreOffice is unavailable. Outputs are clearly labelled SAMPLE_ONLY and saved under **data/review/sample_output/**. This validates small and 50-item lists, immutable style/media parts, section settings, and table properties.
 
 For the Debian 13 cloud machine, `bash scripts/setup-cloud-pdf.sh` installs an authenticated rootless LibreOffice runtime under **data/pdf-runtime/**. Use the ordinary LibreOffice installer on Windows/macOS.
+
+## Online hosting
+
+For Streamlit Community Cloud with Supabase persistence, company login and server-side PDF generation, follow [CLOUD_DEPLOYMENT.md](CLOUD_DEPLOYMENT.md). Local Windows use continues to work without cloud credentials.
