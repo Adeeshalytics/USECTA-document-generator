@@ -1,0 +1,2 @@
+streamlit==1.65.0
+docxtpl==0.20.2
