@@ -57,3 +57,9 @@ Sample documents use fictitious reference/dates/supplier data and are not for su
 Following the user's requested adjustment, the collection table now allocates 12% of its width to Item No, 68% to Item, and 20% to Document Fee. Its total width remains 9900 twips. Fixed table layout keeps these proportions, and the inherited right paragraph indent is cleared within the table so the narrow columns use their available space. Fonts, borders, branding, margins, and other documents remain unchanged.
 
 The revised template was rendered with item numbers 32, 36, 41, 46, 48, 21, 25, and 50 and checked visually in PDF. The longer descriptions have more room and the Item No header fits on one line. Existing saved templates and runs retain their previous version.
+
+## Agency agreement typography check
+
+The supplier definition in clause 1.1 and the supplier signature heading now use `{{ supplier_name | upper }}` to match the original sample's capitalization. The introductory supplier name retains its entered capitalization. These edits did not change any run-format properties, stylesheet, image, section setting, or fixed package part.
+
+Rendered output was checked for the existing bold introductory supplier name, bold registration number, and bold signature heading. Body text inherits 11-point Times New Roman from the Normal style. A separate rendering check verified that explicitly formatted 9-point bold and 16-point placeholders retain their independent sizes. PDF conversion passed. Font size follows the template; it is not automatically changed to fit new content.
