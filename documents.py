@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import re
 import shutil
 import sqlite3
@@ -20,7 +21,7 @@ from docxtpl import DocxTemplate
 from jinja2 import StrictUndefined
 from jinja2.sandbox import SandboxedEnvironment
 
-DATA_DIR = Path(__file__).resolve().parent / "data"
+DATA_DIR = Path(os.environ.get("USECTA_DATA_DIR", Path(__file__).resolve().parent / "data"))
 FIELDS = {
     "company_name": "Company name", "company_address": "Company address",
     "company_email": "Company email", "company_phone": "Company phone",
@@ -271,23 +272,61 @@ def render_document(content, context, required=()):
 
 
 def pdf_available():
-    local = DATA_DIR / "pdf-runtime" / "bin" / "libreoffice"
-    return shutil.which("libreoffice") or shutil.which("soffice") or (str(local) if local.is_file() else None)
+    root = Path(__file__).resolve().parent
+    candidates = [os.environ.get("USECTA_PDF_EXECUTABLE"),
+                  root / "runtime/libreoffice/program/soffice.exe",
+                  root / "LibreOfficePortable/App/libreoffice/program/soffice.exe",
+                  DATA_DIR / "pdf-runtime/bin/libreoffice"]
+    for folder in (os.environ.get("ProgramFiles"), os.environ.get("ProgramFiles(x86)")):
+        if folder:
+            candidates.append(Path(folder) / "LibreOffice/program/soffice.exe")
+    for candidate in candidates:
+        if candidate and Path(candidate).is_file():
+            return str(candidate)
+    return shutil.which("libreoffice") or shutil.which("soffice")
 
 
-def convert_pdf(content):
+def convert_pdfs(documents):
+    """Convert Word documents in batches so LibreOffice starts fewer times."""
+    if not documents:
+        return {}
     executable = pdf_available()
     if not executable:
         raise ValueError("PDF export needs LibreOffice. Install it, or download DOCX and export to PDF in Word.")
-    with tempfile.TemporaryDirectory(prefix="usecta-pdf-") as temp:
-        root = Path(temp)
-        source = root / "document.docx"
-        source.write_bytes(content)
-        result = subprocess.run([executable, f"-env:UserInstallation={(root / 'profile').as_uri()}", "--headless", "--convert-to", "pdf", "--outdir", str(root), str(source)], capture_output=True, timeout=90)
-        target = root / "document.pdf"
-        if result.returncode or not target.exists():
-            raise ValueError("LibreOffice could not convert this document. Download the DOCX and check its layout in Word.")
-        return target.read_bytes()
+    converted = {}
+    entries = list(documents.items())
+    # Keep Windows command lines short and give each batch an isolated profile.
+    for offset in range(0, len(entries), 20):
+        batch = entries[offset:offset + 20]
+        with tempfile.TemporaryDirectory(prefix="usecta-pdf-") as temp:
+            root = Path(temp)
+            sources = []
+            for index, (_, content) in enumerate(batch):
+                source = root / f"document-{index}.docx"
+                source.write_bytes(content)
+                sources.append(source)
+            command = [executable, f"-env:UserInstallation={(root / 'profile').as_uri()}",
+                       "--headless", "--convert-to", "pdf", "--outdir", str(root)]
+            try:
+                result = subprocess.run(command + [str(source) for source in sources],
+                                        capture_output=True, timeout=max(90, 30 * len(batch)))
+            except subprocess.TimeoutExpired:
+                raise ValueError("PDF conversion took too long. Try fewer documents at a time.") from None
+            if result.returncode:
+                raise ValueError("LibreOffice could not convert these documents. Download DOCX and check the layout in Word.")
+            for (name, _), source in zip(batch, sources):
+                target = source.with_suffix('.pdf')
+                if not target.exists():
+                    raise ValueError(f"LibreOffice could not generate the PDF for {name}.")
+                content = target.read_bytes()
+                if not content.startswith(b'%PDF-'):
+                    raise ValueError(f"LibreOffice generated an invalid PDF for {name}.")
+                converted[name[:-5] + '.pdf'] = content
+    return converted
+
+
+def convert_pdf(content):
+    return convert_pdfs({'document.docx': content})['document.pdf']
 
 
 def filename(name):

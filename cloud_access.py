@@ -1,5 +1,6 @@
 """Cloud configuration and company login, evaluated before accessing records."""
 import time
+import os
 
 import streamlit as st
 
@@ -8,6 +9,9 @@ import documents
 
 
 def workspace_store():
+    # The desktop edition must never consult cloud credentials or contact Supabase.
+    if os.environ.get('USECTA_LOCAL_MODE') == '1':
+        return documents.Store(), False
     try:
         settings = dict(st.secrets)
     except FileNotFoundError:

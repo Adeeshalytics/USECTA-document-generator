@@ -59,7 +59,7 @@ def extra_fields(keys, required, prefix):
 def generate_panel(workflow, jobs, fingerprint, can_generate, run_name):
     with_pdf = st.checkbox("Include PDF copies", disabled=not pdf_available(), key=f"pdf_{workflow}")
     if not pdf_available():
-        st.caption("DOCX works without LibreOffice. Install LibreOffice to enable PDF copies.")
+        st.caption("DOCX works without LibreOffice. Run setup-desktop.bat for the local PDF setup, or install LibreOffice.")
     signature = hashlib.sha256((fingerprint + str(with_pdf)).encode()).hexdigest()
     if st.button("Generate documents", type="primary", disabled=not can_generate, key=f"generate_{workflow}"):
         st.session_state.pop(f"output_{workflow}", None)

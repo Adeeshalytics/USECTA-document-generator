@@ -1,0 +1,50 @@
+name: Windows desktop package
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/windows-desktop.yml'
+      - 'desktop.py'
+      - 'app.py'
+      - 'documents.py'
+      - 'workflows.py'
+      - 'cloud_access.py'
+      - 'cloud_store.py'
+      - 'scripts/*desktop*'
+      - 'scripts/make-usb-copy.py'
+      - '*.bat'
+      - 'requirements.txt'
+      - 'company_templates/**'
+      - 'catalogues/**'
+      - 'LOCAL_DESKTOP.md'
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare and verify portable Python and LibreOffice
+        shell: powershell
+        run: ./scripts/setup-desktop.ps1
+      - name: Check local app and desktop launcher on Windows
+        shell: powershell
+        run: |
+          & ./runtime/python/python.exe ./scripts/check-local-app.py
+          if ($LASTEXITCODE -ne 0) { throw 'Local app/launcher verification failed.' }
+      - name: Assemble clean pendrive folder
+        shell: powershell
+        run: |
+          & ./runtime/python/python.exe ./scripts/make-usb-copy.py --fresh --output ./dist/USECTA-Desktop
+          if ($LASTEXITCODE -ne 0) { throw 'Portable assembly failed.' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: USECTA-Desktop-Windows-x64
+          path: dist/USECTA-Desktop/
+          retention-days: 30
+          if-no-files-found: error

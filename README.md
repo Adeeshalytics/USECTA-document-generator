@@ -2,6 +2,12 @@
 
 Create recurring tender letters, bid forms, agreements, and independent quotations locally. No LLM, API key, or paid service is required. USECTA's company name, address, branding, and fixed wording stay in the Word templates.
 
+## One-click desktop and pendrive edition
+
+For Windows 10/11 on Intel/AMD 64-bit PCs, double-click **setup-desktop.bat** once. It prepares a bundled Python and LibreOffice runtime, tests PDF generation, and creates desktop shortcuts. Later, open **USECTA Documents** from your desktop; normal use runs offline and ignores cloud credentials.
+
+Double-click **Make USB copy.bat** to make a complete folder for the other director. Copy it to their PC and run **Create desktop shortcuts.bat**; they do not repeat the Python/LibreOffice setup. See [LOCAL_DESKTOP.md](LOCAL_DESKTOP.md) for exact steps, data transfer and backups. The first preparation needs internet and downloads a sizeable runtime; subsequent use does not.
+
 ## Run on Windows
 
 Requires Python 3.12 or newer. Extract the project into a normal folder, then double-click **setup-windows.bat** once and **run-windows.bat** to start the application.
@@ -118,7 +124,7 @@ All live profiles, catalogues, templates, and saved runs are in the ignored **da
 
 Back up the entire **data/** folder with the app stopped. The six supplied templates are included in GitHub for distribution. Later uploads, saved profiles, catalogues edited in the app, saved runs, and generated output files remain excluded from Git in **data/** and **exports/**. No company records are sent to an LLM or other application API. Dependency installation requires Internet access initially.
 
-This application is intended for a trusted local user. Shared hosting, accounts, digital signatures, approval workflows, and automatic legal-clause changes are not included.
+The desktop edition is intended for a trusted local user. The optional cloud edition supports approved company accounts; digital signatures, approval workflows, and automatic legal-clause changes are not included.
 
 ## Development and verification
 

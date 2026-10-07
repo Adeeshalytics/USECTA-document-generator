@@ -10,7 +10,7 @@ from pathlib import Path
 from datetime import date, time
 from decimal import ROUND_HALF_UP
 
-from documents import (CENT, Store, build_context, convert_pdf, filename, money,
+from documents import (CENT, Store, build_context, convert_pdfs, filename, money,
                        render_document, template_variables)
 
 SUPPLIER_FIELDS = {
@@ -220,8 +220,7 @@ def generate_files(store, jobs, with_pdf=False):
             raise ValueError("Two output filenames are identical. Change the template names or item identifiers.")
         files[path] = content
     if with_pdf:
-        for path, content in list(files.items()):
-            files[path[:-5] + ".pdf"] = convert_pdf(content)
+        files.update(convert_pdfs(files))
     return files
 
 
