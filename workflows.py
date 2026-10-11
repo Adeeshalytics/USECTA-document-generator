@@ -10,8 +10,9 @@ from pathlib import Path
 from datetime import date, time
 from decimal import ROUND_HALF_UP
 
-from documents import (CENT, Store, build_context, convert_pdfs, filename, money,
+from documents import (CENT, Store, build_context, convert_pdf, filename, money,
                        render_document, template_variables)
+from desktop_paths import asset_root
 
 SUPPLIER_FIELDS = {
     "supplier_name": "Supplier name", "supplier_country": "Country",
@@ -168,9 +169,13 @@ def tender_jobs(store, template_ids, context):
                 raise ValueError("Select at least one item for per-item documents.")
             contexts = [context | {"item_number": row["item_number"], "item_description": row["description"], "item_quantity_kg": row["quantity_kg"]} for row in context["tender_items"]]
         for current in contexts:
+            missing = [field for field in template["required"] if not current.get(field) or
+                       (isinstance(current[field], str) and not current[field].strip())]
+            if missing:
+                raise ValueError(f"{template['name']}: complete required fields: " + ", ".join(missing))
             suffix = f"_item_{filename(current['item_number'])}" if template["scope"] == "item" else ""
             stem = f"{filename(context['bid_reference'])}_{filename(template['name'])}{suffix}_{key[:8]}"
-            jobs.append({"template_id": key, "context": current, "filename": stem})
+            jobs.append({"template_id": key, "context": {name: current[name] for name in variables if name in current}, "filename": stem})
     return jobs
 
 
@@ -196,30 +201,39 @@ def quotation_jobs(store, template_ids, context):
         variables = template_variables(store.template_path(template).read_bytes())
         if variables & TENDER_COMPUTED:
             raise ValueError("Quotation templates cannot use tender fields or tender item lists.")
-        jobs.append({"template_id": key, "context": context,
+        missing = [field for field in template["required"] if not context.get(field)]
+        if missing:
+            raise ValueError(f"{template['name']}: complete required fields: " + ", ".join(missing))
+        jobs.append({"template_id": key, "context": {name: context[name] for name in variables if name in context},
                      "filename": filename(context.get("quotation_number", "Quotation")) + "_" + filename(template["name"]) + "_" + key[:8]})
     return jobs
 
 
-def generate_files(store, jobs, with_pdf=False):
+def generate_files(store, jobs, with_pdf=False, progress=None):
     if not jobs:
         raise ValueError("Select at least one document template.")
     templates = {t["id"]: t for t in store.templates()}
     files = {}
     # Render every Word file before attempting PDF conversion. A failure produces no partial download set.
-    for job in jobs:
+    sources = {}
+    for index, job in enumerate(jobs):
         template = templates.get(job["template_id"])
         if template is None:
             raise ValueError("A saved template version is missing. Restore it from your data backup.")
         try:
-            content = render_document(store.template_path(template).read_bytes(), job["context"], template["required"])
+            if template["id"] not in sources:
+                sources[template["id"]] = store.template_path(template).read_bytes()
+            content = render_document(sources[template["id"]], job["context"], template["required"])
         except Exception as exc:
             raise ValueError(f"{template['name']}: {exc}") from exc
         path = job["filename"] + ".docx"
         if path in files:
             raise ValueError("Two output filenames are identical. Change the template names or item identifiers.")
         files[path] = content
+        if progress:
+            progress(index + 1, len(jobs), template["name"])
     if with_pdf:
+        from documents import convert_pdfs
         files.update(convert_pdfs(files))
     return files
 
@@ -252,7 +266,7 @@ def create_quotation_template(store: Store):
 
 def prepare_workspace(store, project_root=None):
     """Install supplied assets once; never replace user-edited catalogues or templates."""
-    root = Path(project_root) if project_root else Path(__file__).resolve().parent
+    root = Path(project_root) if project_root else asset_root()
     metadata = root / "catalogues/SPMC_03_2026.json"
     catalogue = root / "catalogues/SPMC_03_2026.csv"
     if metadata.exists() and catalogue.exists():
@@ -260,8 +274,11 @@ def prepare_workspace(store, project_root=None):
         reference = details.pop("reference")
         if reference not in store.tenders():
             rows = import_catalog(catalogue.read_bytes(), ".csv")
-            store.save_tender(reference, details)
-            store.save_catalog(reference, rows)
+            if hasattr(store, "seed_tender"):
+                store.seed_tender(reference, details, rows)
+            else:
+                store.save_tender(reference, details)
+                store.save_catalog(reference, rows)
     folder = root / "company_templates"
     manifest = folder / "manifest.json"
     if manifest.exists():

@@ -33,9 +33,10 @@ def test_desktop_ignores_cloud_secrets_and_never_contacts_supabase(tmp_path, mon
                         'ALLOWED_EMAILS': ['owner@example.com']})
     app.run()
     assert not app.exception
-    assert len(app.tabs) == 5
+    assert len(app.radio(key='page').options) == 6
     assert len(store.catalog('SPMC/03/2026')) == 50
     assert not any(button.label == 'Sign in' for button in app.button)
+    app.radio(key='page').set_value('Suppliers').run()
     app.text_input(key='supplier_new_supplier_name').set_value('Saved while offline')
     next(button for button in app.button if button.label == 'Save supplier').click().run()
     assert not app.exception
@@ -110,6 +111,7 @@ def test_fresh_usb_copy_contains_no_personal_workspace(prepared_folder, tmp_path
 def test_windows_libreoffice_detection_without_path(tmp_path, monkeypatch):
     monkeypatch.delenv('USECTA_PDF_EXECUTABLE', raising=False)
     monkeypatch.setattr(documents, 'DATA_DIR', tmp_path / 'data')
+    monkeypatch.setattr(documents, 'asset_root', lambda: tmp_path)
     folder = tmp_path / 'Program Files'
     exe = folder / 'LibreOffice/program/soffice.exe'
     exe.parent.mkdir(parents=True)

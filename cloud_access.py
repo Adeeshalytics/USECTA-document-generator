@@ -1,24 +1,31 @@
 """Cloud configuration and company login, evaluated before accessing records."""
 import time
-import os
 
 import streamlit as st
 
-from cloud_store import SupabaseAPI, SupabaseStore
 import documents
+from desktop_paths import offline_mode
+if not offline_mode():
+    from cloud_store import SupabaseAPI, SupabaseStore
+
+
+def local_store():
+    if "_local_store" not in st.session_state:
+        st.session_state["_local_store"] = documents.Store()
+    return st.session_state["_local_store"]
 
 
 def workspace_store():
-    # The desktop edition must never consult cloud credentials or contact Supabase.
-    if os.environ.get('USECTA_LOCAL_MODE') == '1':
-        return documents.Store(), False
+    # The installed edition cannot be switched to a remote backend by secrets.
+    if offline_mode():
+        return local_store(), False
     try:
         settings = dict(st.secrets)
     except FileNotFoundError:
         settings = {}
     backend = settings.get('STORAGE_BACKEND', 'local')
     if backend == 'local':
-        return documents.Store(), False
+        return local_store(), False
     if backend != 'supabase':
         st.error('STORAGE_BACKEND must be local or supabase.')
         st.stop()

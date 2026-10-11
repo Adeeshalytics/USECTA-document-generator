@@ -17,8 +17,8 @@ def main():
         os.environ['USECTA_DATA_DIR'] = temp
         from streamlit.testing.v1 import AppTest
         app = AppTest.from_file(str(ROOT / 'app.py'), default_timeout=30).run()
-        if app.exception or len(app.tabs) != 5:
-            raise RuntimeError('Local app did not load the five workflow tabs.')
+        if app.exception or len(app.radio(key='page').options) != 6:
+            raise RuntimeError('Local app did not load the six workspace screens.')
         del os.environ['USECTA_DATA_DIR']
     import desktop
     process = subprocess.Popen([sys.executable, str(ROOT / 'desktop.py'), '--no-browser'], cwd=ROOT)
@@ -47,7 +47,7 @@ def main():
             except subprocess.TimeoutExpired:
                 process.kill()
                 process.wait()
-    print('Local app tabs, desktop startup, repeat launch and stop checks passed.')
+    print('Local app screens, desktop startup, repeat launch and stop checks passed.')
 
 
 if __name__ == '__main__':

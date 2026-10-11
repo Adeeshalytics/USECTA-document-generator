@@ -218,11 +218,13 @@ def test_app_creates_tender_and_supplier(tmp_path, monkeypatch):
     store = Store(tmp_path)
     monkeypatch.setattr(documents, "Store", lambda: store)
     app = AppTest.from_file(APP, default_timeout=20).run()
+    app.radio(key="page").set_value("Tenders & items").run()
     app.text_input(key="catalog_ref_new").set_value("SPMC/03/2026")
     app.date_input(key="catalog_date_new").set_value(date(2026, 11, 20))
     next(x for x in app.button if x.label == "Save tender").click().run()
     assert not app.exception
     assert store.tenders()["SPMC/03/2026"]["closing_date"] == "2026-11-20"
+    app.radio(key="page").set_value("Suppliers").run()
     app.text_input(key="supplier_new_supplier_name").set_value("Saved Supplier")
     next(x for x in app.button if x.label == "Save supplier").click().run()
     assert not app.exception
@@ -239,6 +241,7 @@ def test_app_quotation_generation(tmp_path, monkeypatch):
     entered_rows = [{"description": "Independent product", "quantity": 2.0, "unit": "kg", "unit_price": 100.0}]
     monkeypatch.setattr(st, "data_editor", lambda data, **kwargs: entered_rows if kwargs.get("key") == "quotation_rows" else original_editor(data, **kwargs))
     app = AppTest.from_file(APP, default_timeout=20).run()
+    app.radio(key="page").set_value("Quotations").run()
     app.text_input(key="quotation_number").set_value("QT-TEST")
     app.text_input(key="quote_customer_name").set_value("Example Customer")
     app.run()

@@ -1,12 +1,16 @@
 """Local USECTA workspace. Run with python -m streamlit run app.py."""
 import hashlib
 import json
+import logging
+import os
+import uuid
 from datetime import date, time
 from pathlib import Path
 
 import streamlit as st
 
-from documents import FIELDS, filename, make_zip, normalize_word, pdf_available, template_variables
+from documents import FIELDS, filename, make_zip, normalize_word, pdf_available, template_variables, convert_pdfs
+from desktop_paths import VERSION, asset_root, offline_mode
 from workflows import (QUOTE_COMPUTED, SUPPLIER_FIELDS, TENDER_COMPUTED, choose_items,
                        create_quotation_template, generate_files, import_catalog, long_date,
                        prepare_workspace, quotation_context, quotation_jobs, tender_context, tender_jobs)
@@ -16,11 +20,19 @@ from cloud_access import workspace_store
 
 store, cloud_mode = workspace_store()
 try:
-    prepare_workspace(store)
-except RuntimeError as exc:
+    if cloud_mode or not st.session_state.get("_workspace_prepared"):
+        prepare_workspace(store)
+        st.session_state["_workspace_prepared"] = True
+except (RuntimeError, ValueError, OSError) as exc:
     st.error(str(exc))
-    st.info("Check Supabase SQL setup and the private document-templates bucket before retrying.")
+    st.info("Check Supabase setup before retrying." if cloud_mode else "Check that your local workspace is writable. See the application log for details.")
     st.stop()
+
+# Widget values survive switching between screens. Button, uploader, and editor
+# states are deliberately excluded because Streamlit prohibits assigning them.
+for draft_key in list(st.session_state):
+    if draft_key in {"tender_reference", "tender_templates", "tender_supplier", "tender_document_date", "tender_effective_date", "quotation_templates", "quotation_number", "quotation_currency", "quotation_date", "quotation_expiry", "edit_tender", "catalog_reference", "edit_supplier", "pdf_tender", "pdf_quotation"} or draft_key.startswith(("selected_items_", "tender_run_", "tender_extra_", "quote_", "catalog_ref_", "catalog_title_", "catalog_date_", "catalog_time_", "catalog_has_validity_", "catalog_validity_", "supplier_")):
+        st.session_state[draft_key] = st.session_state[draft_key]
 COMPANY = {"company_name": "USECTA (Pvt) Ltd", "company_address": "33/5 Boruppa Road, Pallegunnepana, Gunnepana Kandy"}
 SCOPES = {"batch": "One document with the selected item list", "item": "One document per item",
           "supplier": "One agreement for the selected supplier and items", "tender": "One document for the tender (e.g. envelopes)"}
@@ -59,40 +71,85 @@ def extra_fields(keys, required, prefix):
 def generate_panel(workflow, jobs, fingerprint, can_generate, run_name):
     with_pdf = st.checkbox("Include PDF copies", disabled=not pdf_available(), key=f"pdf_{workflow}")
     if not pdf_available():
-        st.caption("DOCX works without LibreOffice. Run setup-desktop.bat for the local PDF setup, or install LibreOffice.")
+        st.caption("DOCX works without LibreOffice. Install LibreOffice to enable PDF copies.")
     signature = hashlib.sha256((fingerprint + str(with_pdf)).encode()).hexdigest()
     if st.button("Generate documents", type="primary", disabled=not can_generate, key=f"generate_{workflow}"):
         st.session_state.pop(f"output_{workflow}", None)
         try:
             with st.spinner("Filling your templates…"):
-                files = generate_files(store, jobs, with_pdf)
-                store.save_record(run_name.strip() or "Untitled run", {"workflow": workflow, "jobs": jobs, "with_pdf": with_pdf})
-                st.session_state[f"output_{workflow}"] = {"signature": signature, "files": files}
+                bar = st.progress(0.0, text="Generating Word documents")
+                files = generate_files(store, jobs, progress=lambda done, total, name: bar.progress(done / total, text=f"{done}/{total} · {name}"))
+                warning = ""
+                if with_pdf:
+                    try:
+                        bar.progress(1.0, text="Converting PDF copies…")
+                        files.update(convert_pdfs(files))
+                    except Exception as exc:
+                        logging.exception("PDF batch failed")
+                        warning = str(exc)
+                bar.empty()
+                export_path = None
+                if not cloud_mode:
+                    export_path = store.root / "exports" / (filename(run_name)[:50] + "_" + uuid.uuid4().hex[:8])
+                    export_path.mkdir(parents=True)
+                    for name, content in files.items():
+                        (export_path / name).write_bytes(content)
+                store.save_record(run_name.strip() or "Untitled run", {"workflow": workflow, "jobs": jobs, "with_pdf": with_pdf, "output_directory": str(export_path) if export_path else ""})
+                st.session_state[f"output_{workflow}"] = {"signature": signature, "files": files, "warning": warning, "folder": str(export_path) if export_path else ""}
         except Exception as exc:
+            logging.exception("Document generation failed")
             st.error(str(exc))
     output = st.session_state.get(f"output_{workflow}")
     if output and output["signature"] == signature:
         st.success("Documents generated and run details saved. Review wording, item details, and pagination before sending.")
+        if output.get("warning"):
+            st.warning("PDF conversion failed; your Word documents were saved. " + output["warning"])
+        if output.get("folder"):
+            st.caption("Saved to: " + output["folder"])
+            if offline_mode() and st.button("Open output folder", key=f"open_output_{workflow}"):
+                os.startfile(output["folder"])
         download_files(output["files"], workflow)
 
 
 st.title("USECTA document workspace")
 st.caption("Your company details stay in your templates. Select a tender and its item numbers, or create a separate quotation.")
 with st.sidebar:
+    if os.environ.get("USECTA_CONTROL_URL") and st.button("Exit application", key="exit_application"):
+        from urllib.request import Request, build_opener, ProxyHandler
+        request = Request(os.environ["USECTA_CONTROL_URL"] + "/stop", data=b"", headers={"X-USECTA-Token": os.environ["USECTA_CONTROL_TOKEN"]}, method="POST")
+        with build_opener(ProxyHandler({})).open(request, timeout=3):
+            pass
+        st.info("USECTA is closing. You can close this browser tab.")
+        st.stop()
+    pages = ["Tender documents", "Quotations", "Tenders & items", "Suppliers", "Templates"]
+    if not cloud_mode:
+        pages.append("Backup & sharing")
+    page = st.radio("Workspace", pages, key="page")
+    st.caption(f"Version {VERSION} · " + ("Cloud workspace" if cloud_mode else "Local workspace"))
     st.header("Saved runs")
-    records = store.records()
+    search = st.text_input("Find saved run", key="history_search")
+    records = store.records() if cloud_mode else store.record_summaries(search)
+    if cloud_mode and search:
+        records = [r for r in records if search.lower() in r["name"].lower()][:50]
     by_record = {r["id"]: r for r in records}
     record_id = st.selectbox("Previous document runs", [None] + list(by_record),
         format_func=lambda key: "Choose a saved run" if key is None else f"{by_record[key]['name']} · {by_record[key]['created_at'][:10]}", key="history")
     if record_id:
-        record = by_record[record_id]
+        record = by_record[record_id] if cloud_mode else store.record(record_id)
         payload = json.loads(record["payload"])
         st.download_button("Download saved details", json.dumps(payload, indent=2).encode(), file_name=filename(record["name"]) + ".json", mime="application/json")
         if "jobs" in payload:
             st.caption("Regenerates using the saved item and supplier details, even if the catalogue has since changed.")
             if st.button("Regenerate saved run"):
+                st.session_state.pop("history_output", None)
                 try:
-                    st.session_state["history_output"] = {"id": record_id, "files": generate_files(store, payload["jobs"], payload.get("with_pdf", False))}
+                    files = generate_files(store, payload["jobs"])
+                    if payload.get("with_pdf", False):
+                        try:
+                            files.update(convert_pdfs(files))
+                        except Exception as exc:
+                            st.warning("Word files are available. " + str(exc))
+                    st.session_state["history_output"] = {"id": record_id, "files": files}
                 except Exception as exc:
                     st.error(str(exc))
             saved = st.session_state.get("history_output")
@@ -102,13 +159,10 @@ with st.sidebar:
             st.caption("Earlier app record preserved. Download its details to re-enter in the new workflow.")
     st.divider()
     st.caption("Records and templates are saved in Supabase." if cloud_mode else
-               "Everything is stored locally in data/. Back up that folder. Templates and saved versions are kept unchanged.")
+               "Everything is stored on this computer. Use Backup & sharing to protect or transfer your records.")
     st.caption("Word output preserves template layout settings. Longer content can change wrapping and page counts; PDF also depends on available fonts.")
 
-tender_tab, quote_tab, catalog_tab, suppliers_tab, templates_tab = st.tabs([
-    "Tender documents", "Quotations", "Tenders & items", "Suppliers", "Templates"])
-
-with tender_tab:
+if page == "Tender documents":
     tenders = store.tenders()
     reference = st.selectbox("Tender reference", [None] + list(tenders), format_func=lambda x: x or "Select a tender", key="tender_reference")
     available = [t for t in store.templates() if t["workflow"] == "tender"]
@@ -156,7 +210,7 @@ with tender_tab:
     if not available:
         st.info("Upload your six Word templates in Templates and choose Tender as their workflow.")
 
-with quote_tab:
+if page == "Quotations":
     st.subheader("Independent quotations")
     st.caption("Quotation products and row numbers are independent of SPMC tenders. Enter any product and unit here.")
     available = [t for t in store.templates() if t["workflow"] == "quotation"]
@@ -171,11 +225,15 @@ with quote_tab:
     expiry = right.date_input("Quotation expiry date", key="quotation_expiry")
     fields = COMPANY | {"quotation_number": number, "currency": currency, "document_date": long_date(issued), "quotation_expiry_date": long_date(expiry)}
     fields.update(extra_fields(used - set(fields) - QUOTE_COMPUTED, required, "quote"))
-    rows = st.data_editor([{"description": "", "quantity": 0.0, "unit": "", "unit_price": 0.0}],
+    if st.session_state.get("_quote_editor_visible") is False:
+        st.session_state["_quote_editor_base"] = st.session_state.get("_quote_editor_draft", [{"description": "", "quantity": 0.0, "unit": "", "unit_price": 0.0}])
+    st.session_state["_quote_editor_visible"] = True
+    rows = st.data_editor(st.session_state.get("_quote_editor_base", [{"description": "", "quantity": 0.0, "unit": "", "unit_price": 0.0}]),
         num_rows="dynamic", hide_index=True, width="stretch", key="quotation_rows", column_config={
             "description": st.column_config.TextColumn("Description"), "unit": st.column_config.TextColumn("Unit (MT, kg, pcs…)"),
             "quantity": st.column_config.NumberColumn("Quantity", min_value=0, step=0.01),
             "unit_price": st.column_config.NumberColumn("Unit price", min_value=0, step=0.01, format="%.2f")})
+    st.session_state["_quote_editor_draft"] = rows
     jobs = []
     try:
         if expiry < issued:
@@ -188,7 +246,7 @@ with quote_tab:
     st.caption("Prices and totals round to two decimal places. No tax or currency conversion is applied automatically.")
     generate_panel("quotation", jobs, json.dumps(jobs, sort_keys=True), bool(jobs), number or "Quotation")
 
-with catalog_tab:
+if page == "Tenders & items":
     st.subheader("Save each tender once")
     tenders = store.tenders()
     editing = st.selectbox("Create or edit tender", [None] + list(tenders), format_func=lambda x: x or "New tender", key="edit_tender")
@@ -212,7 +270,7 @@ with catalog_tab:
     catalog_ref = st.selectbox("Tender catalogue to edit", [None] + references, format_func=lambda x: x or "Choose a saved tender", key="catalog_reference")
     st.download_button("Download blank CSV format", b"item_number,description,document_fee,quantity_kg\n", file_name="tender_catalogue.csv", mime="text/csv")
     st.caption("Required CSV/XLSX headers: item_number, description, document_fee. Optional: quantity_kg. Document fee is in LKR, separate from product price and bid security. Item numbers are scoped to this tender.")
-    bundled = Path(__file__).parent / "catalogues" / "SPMC_03_2026.csv"
+    bundled = asset_root() / "catalogues" / "SPMC_03_2026.csv"
     if bundled.exists():
         st.download_button("Download supplied SPMC/03/2026 catalogue (50 items)", bundled.read_bytes(), file_name=bundled.name, mime="text/csv")
     if catalog_ref:
@@ -229,8 +287,17 @@ with catalog_tab:
             st.session_state[f"catalog_revision_{catalog_ref}"] = st.session_state.get(f"catalog_revision_{catalog_ref}", 0) + 1
         initial = st.session_state.get(f"catalog_stage_{catalog_ref}", store.catalog(catalog_ref)) or [{"item_number": "", "description": "", "document_fee": "", "quantity_kg": ""}]
         revision = st.session_state.get(f"catalog_revision_{catalog_ref}", 0)
+        if st.session_state.get("_catalog_editor_visible") != catalog_ref:
+            draft = st.session_state.get(f"_catalog_editor_draft_{catalog_ref}")
+            if draft is not None:
+                initial = draft
+                st.session_state[f"catalog_stage_{catalog_ref}"] = draft
+                revision += 1
+                st.session_state[f"catalog_revision_{catalog_ref}"] = revision
+        st.session_state["_catalog_editor_visible"] = catalog_ref
         edited = st.data_editor(initial, num_rows="dynamic", hide_index=True, width="stretch", key=f"catalog_editor_{catalog_ref}_{revision}",
             column_config={"item_number": st.column_config.TextColumn("Item number"), "description": st.column_config.TextColumn("Official item description"), "document_fee": st.column_config.TextColumn("Document fee (LKR)"), "quantity_kg": st.column_config.TextColumn("Tender quantity (kg)")})
+        st.session_state[f"_catalog_editor_draft_{catalog_ref}"] = edited
         st.caption("Saving replaces this tender's catalogue with the rows shown. Other tenders and saved document runs remain unchanged.")
         if st.button("Save item catalogue", key=f"save_catalog_{catalog_ref}"):
             try:
@@ -244,7 +311,7 @@ with catalog_tab:
         if st.session_state.get("catalog_saved") == catalog_ref:
             st.success("Item catalogue saved.")
 
-with suppliers_tab:
+if page == "Suppliers":
     st.subheader("Reusable supplier profiles")
     suppliers = store.suppliers()
     editing = st.selectbox("Create or edit supplier", [None] + list(suppliers), format_func=lambda key: "New supplier" if key is None else suppliers[key]["supplier_name"], key="edit_supplier")
@@ -264,7 +331,7 @@ with suppliers_tab:
     if st.session_state.pop("supplier_saved", False):
         st.success("Supplier profile saved.")
 
-with templates_tab:
+if page == "Templates":
     st.subheader("Your original Word layouts")
     st.write("Upload DOCX or DOTX templates with placeholders. USECTA's name, address, letterhead, and fixed wording can stay as ordinary text.")
     st.caption("Every upload is a separate version. The generator fills the existing Word package; it does not rebuild the letterhead, tables, styles, or page setup.")
@@ -295,10 +362,23 @@ with templates_tab:
     for template in store.templates():
         with st.expander(f"{template['name']} · {template['workflow']} · {template['created_at'][:10]} · {template['id'][:8]}"):
             st.caption("Required: " + ", ".join(template["required"]))
-            st.download_button("Download editable template", store.template_path(template).read_bytes(), file_name=filename(template["name"]) + ".docx", key=f"download_template_{template['id']}")
+            if st.button("Prepare editable template download", key=f"prepare_template_{template['id']}"):
+                st.session_state["_template_download"] = {"id": template["id"], "content": store.template_path(template).read_bytes()}
+            ready = st.session_state.get("_template_download", {})
+            if ready.get("id") == template["id"]:
+                st.download_button("Download editable template", ready["content"], file_name=filename(template["name"]) + ".docx", key=f"download_template_{template['id']}")
             with st.form(f"usage_{template['id']}"):
                 workflow = st.selectbox("Use in", ["legacy", "tender", "quotation"], index=["legacy", "tender", "quotation"].index(template["workflow"]), key=f"usage_workflow_{template['id']}")
                 scope = st.selectbox("Scope", list(SCOPES), index=list(SCOPES).index(template["scope"]), format_func=lambda x: SCOPES[x], key=f"usage_scope_{template['id']}")
                 if st.form_submit_button("Save template usage"):
                     store.set_template_usage(template["id"], workflow, scope)
                     st.rerun()
+
+if page == "Backup & sharing":
+    from backup_ui import render_backup_screen
+    render_backup_screen(store)
+
+if page != "Quotations":
+    st.session_state["_quote_editor_visible"] = False
+if page != "Tenders & items":
+    st.session_state["_catalog_editor_visible"] = None

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import closing
 from datetime import datetime
 import os
 from pathlib import Path
@@ -13,6 +14,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 FILES = ['app.py', 'documents.py', 'workflows.py', 'cloud_access.py', 'cloud_store.py', 'desktop.py',
+         'desktop_paths.py', 'backup_ui.py', 'workspace_archive.py',
          'requirements.txt', 'LOCAL_DESKTOP.md', 'setup-desktop.bat', 'Open USECTA.bat',
          'Stop USECTA.bat', 'Create desktop shortcuts.bat', 'Make USB copy.bat']
 SCRIPTS = ['check-desktop.py', 'create-desktop-shortcuts.ps1', 'setup-desktop.ps1', 'make-usb-copy.py']
@@ -23,11 +25,11 @@ def copy_local_data(source, target):
     if not db.exists():
         return
     target.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(db.as_uri() + '?mode=ro', uri=True) as original:
-        with sqlite3.connect(target / 'records.sqlite3') as backup:
+    with closing(sqlite3.connect(db.as_uri() + '?mode=ro', uri=True)) as original:
+        with closing(sqlite3.connect(target / 'records.sqlite3')) as backup:
             original.backup(backup)
     # Copy only templates referenced by the database snapshot, not logs/review files.
-    with sqlite3.connect(target / 'records.sqlite3') as backup:
+    with closing(sqlite3.connect(target / 'records.sqlite3')) as backup:
         tables = {row[0] for row in backup.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         if 'templates' not in tables:
             return

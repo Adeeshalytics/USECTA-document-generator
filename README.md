@@ -1,12 +1,16 @@
 # USECTA Document Generator
 
+The offline Windows edition includes a desktop launcher, local storage, backup/
+restore, company share packages, and a bundled PDF converter. See
+[OFFLINE_USER_GUIDE.md](OFFLINE_USER_GUIDE.md) for installation and everyday use,
+or [BUILD_WINDOWS.md](BUILD_WINDOWS.md) for producing the pendrive installer.
+The source/cloud workflows below remain available for development.
+
+The existing source-folder/USB setup remains available through
+**setup-desktop.bat** and **Make USB copy.bat**; see
+[LOCAL_DESKTOP.md](LOCAL_DESKTOP.md). It is separate from the installable edition.
+
 Create recurring tender letters, bid forms, agreements, and independent quotations locally. No LLM, API key, or paid service is required. USECTA's company name, address, branding, and fixed wording stay in the Word templates.
-
-## One-click desktop and pendrive edition
-
-For Windows 10/11 on Intel/AMD 64-bit PCs, double-click **setup-desktop.bat** once. It prepares a bundled Python and LibreOffice runtime, tests PDF generation, and creates desktop shortcuts. Later, open **USECTA Documents** from your desktop; normal use runs offline and ignores cloud credentials.
-
-Double-click **Make USB copy.bat** to make a complete folder for the other director. Copy it to their PC and run **Create desktop shortcuts.bat**; they do not repeat the Python/LibreOffice setup. See [LOCAL_DESKTOP.md](LOCAL_DESKTOP.md) for exact steps, data transfer and backups. The first preparation needs internet and downloads a sizeable runtime; subsequent use does not.
 
 ## Run on Windows
 

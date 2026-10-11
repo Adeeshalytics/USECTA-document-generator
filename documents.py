@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 import io
-import json
 import os
+import json
 import re
 import shutil
 import sqlite3
@@ -14,6 +14,8 @@ import zipfile
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
+from functools import lru_cache
+from contextlib import contextmanager
 
 from docx import Document
 from docx.shared import Inches, Pt
@@ -21,7 +23,9 @@ from docxtpl import DocxTemplate
 from jinja2 import StrictUndefined
 from jinja2.sandbox import SandboxedEnvironment
 
-DATA_DIR = Path(os.environ.get("USECTA_DATA_DIR", Path(__file__).resolve().parent / "data"))
+from desktop_paths import asset_root, offline_mode, workspace_root, workspace_lock
+
+DATA_DIR = workspace_root() if offline_mode() else Path(__file__).resolve().parent / "data"
 FIELDS = {
     "company_name": "Company name", "company_address": "Company address",
     "company_email": "Company email", "company_phone": "Company phone",
@@ -69,15 +73,22 @@ class Store:
                     reference TEXT NOT NULL, item_number TEXT NOT NULL, description TEXT NOT NULL,
                     document_fee TEXT NOT NULL, PRIMARY KEY (reference, item_number));
                 CREATE TABLE IF NOT EXISTS suppliers (id TEXT PRIMARY KEY, name TEXT NOT NULL, payload TEXT NOT NULL);
+                CREATE INDEX IF NOT EXISTS records_created ON records(created_at DESC);
             """)
             item_columns = {r["name"] for r in con.execute("PRAGMA table_info(tender_items)")}
             if "quantity_kg" not in item_columns:
                 con.execute("ALTER TABLE tender_items ADD COLUMN quantity_kg TEXT NOT NULL DEFAULT ''")
 
+    @contextmanager
     def connect(self):
-        con = sqlite3.connect(self.db)
-        con.row_factory = sqlite3.Row
-        return con
+        with workspace_lock(str(self.root.resolve())):
+            con = sqlite3.connect(self.db, timeout=15)
+            con.row_factory = sqlite3.Row
+            try:
+                with con:
+                    yield con
+            finally:
+                con.close()
 
     def profiles(self):
         with self.connect() as con:
@@ -93,6 +104,19 @@ class Store:
         with self.connect() as con:
             return [dict(r) for r in con.execute("SELECT * FROM records ORDER BY created_at DESC")]
 
+    def record_summaries(self, search="", limit=50):
+        with self.connect() as con:
+            return [dict(r) for r in con.execute(
+                "SELECT id,name,created_at FROM records WHERE instr(lower(name),lower(?)) > 0 "
+                "ORDER BY created_at DESC LIMIT ?", (search, limit))]
+
+    def record(self, key):
+        with self.connect() as con:
+            row = con.execute("SELECT * FROM records WHERE id=?", (key,)).fetchone()
+            if row is None:
+                raise ValueError("Saved run not found.")
+            return dict(row)
+
     def save_record(self, name, payload):
         if not name.strip():
             raise ValueError("Give the project a name.")
@@ -106,6 +130,8 @@ class Store:
             return [dict(r) | {"required": json.loads(r["required"])} for r in con.execute("SELECT * FROM templates ORDER BY name")]
 
     def template_path(self, template):
+        if not re.fullmatch(r"[A-Za-z0-9_-]+\.docx", template["filename"]):
+            raise ValueError("Invalid stored template filename.")
         return self.templates_dir / template["filename"]
 
     def add_template(self, name, content, required=(), key=None, workflow="legacy", scope="batch"):
@@ -119,9 +145,24 @@ class Store:
         if set(required) - variables:
             raise ValueError("Required fields must appear in the template.")
         key = key or uuid.uuid4().hex
+        if not re.fullmatch(r"[A-Za-z0-9_-]+", key):
+            raise ValueError("Invalid template ID.")
+        if workflow not in {"legacy", "tender", "quotation"} or scope not in {"batch", "item", "supplier", "tender"}:
+            raise ValueError("Choose a supported document type and scope.")
         path = self.templates_dir / f"{key}.docx"
-        path.write_bytes(content)
         with self.connect() as con:
+            existing = con.execute("SELECT filename FROM templates WHERE id=?", (key,)).fetchone()
+            if existing:
+                if path.read_bytes() != content:
+                    raise ValueError("This template version already contains different content.")
+                return key
+            with tempfile.NamedTemporaryFile(dir=self.templates_dir, delete=False) as output:
+                temporary = Path(output.name)
+                output.write(content)
+            try:
+                temporary.replace(path)
+            finally:
+                temporary.unlink(missing_ok=True)
             con.execute("INSERT INTO templates (id, name, filename, required, created_at, workflow, scope) VALUES (?, ?, ?, ?, ?, ?, ?)", (key, name.strip(), path.name, json.dumps(list(required)), datetime.now(timezone.utc).isoformat(), workflow, scope))
         return key
 
@@ -141,6 +182,16 @@ class Store:
         validate_tender(reference, payload)
         with self.connect() as con:
             con.execute("INSERT INTO tenders VALUES (?, ?) ON CONFLICT(reference) DO UPDATE SET payload=excluded.payload", (reference, json.dumps(payload)))
+
+    def seed_tender(self, reference, payload, rows):
+        from workflows import validate_catalog, validate_tender
+        validate_tender(reference, payload)
+        cleaned = validate_catalog(rows)
+        with self.connect() as con:
+            if con.execute("SELECT 1 FROM tenders WHERE reference=?", (reference,)).fetchone():
+                return
+            con.execute("INSERT INTO tenders VALUES (?,?)", (reference, json.dumps(payload)))
+            con.executemany("INSERT INTO tender_items (reference,item_number,description,document_fee,quantity_kg) VALUES (?,?,?,?,?)", [(reference, r["item_number"], r["description"], r["document_fee"], r["quantity_kg"]) for r in cleaned])
 
     def catalog(self, reference):
         with self.connect() as con:
@@ -196,6 +247,7 @@ def normalize_word(content):
     return output.getvalue()
 
 
+@lru_cache(maxsize=32)
 def template_variables(content):
     with zipfile.ZipFile(io.BytesIO(content)) as archive:
         for name in archive.namelist():
@@ -208,7 +260,7 @@ def template_variables(content):
                     if re.search(r"(?<!\{)\{\s*[A-Za-z_]\w*\s*\}\}", text):
                         raise ValueError("A placeholder is missing its opening brace. Use {{ field_name }}.")
     tpl = DocxTemplate(io.BytesIO(normalize_word(content)))
-    return tpl.get_undeclared_template_variables(jinja_env=SandboxedEnvironment())
+    return frozenset(tpl.get_undeclared_template_variables(jinja_env=SandboxedEnvironment()))
 
 
 def money(value):
@@ -272,61 +324,74 @@ def render_document(content, context, required=()):
 
 
 def pdf_available():
-    root = Path(__file__).resolve().parent
-    candidates = [os.environ.get("USECTA_PDF_EXECUTABLE"),
-                  root / "runtime/libreoffice/program/soffice.exe",
-                  root / "LibreOfficePortable/App/libreoffice/program/soffice.exe",
-                  DATA_DIR / "pdf-runtime/bin/libreoffice"]
-    for folder in (os.environ.get("ProgramFiles"), os.environ.get("ProgramFiles(x86)")):
-        if folder:
-            candidates.append(Path(folder) / "LibreOffice/program/soffice.exe")
-    for candidate in candidates:
+    # Retain compatibility with existing source/USB desktop installations.
+    for candidate in [os.environ.get("USECTA_PDF_EXECUTABLE"),
+                      asset_root() / "runtime/libreoffice/program/soffice.exe",
+                      asset_root() / "LibreOfficePortable/App/libreoffice/program/soffice.exe"]:
         if candidate and Path(candidate).is_file():
             return str(candidate)
-    return shutil.which("libreoffice") or shutil.which("soffice")
+    bundled = asset_root() / "pdf-runtime" / "program" / "soffice.exe"
+    if bundled.is_file():
+        return str(bundled)
+    developer_runtime = asset_root() / "vendor" / "pdf-runtime" / "program" / "soffice.exe"
+    if developer_runtime.is_file():
+        return str(developer_runtime)
+    for base in [os.environ.get("PROGRAMFILES"), os.environ.get("PROGRAMFILES(X86)")]:
+        if base:
+            candidate = Path(base) / "LibreOffice" / "program" / "soffice.exe"
+            if candidate.is_file():
+                return str(candidate)
+    local = DATA_DIR / "pdf-runtime" / "bin" / "libreoffice"
+    return shutil.which("libreoffice") or shutil.which("soffice") or (str(local) if local.is_file() else None)
 
 
-def convert_pdfs(documents):
-    """Convert Word documents in batches so LibreOffice starts fewer times."""
-    if not documents:
+def convert_pdf(content):
+    return convert_pdfs({"document.docx": content})["document.pdf"]
+
+
+def convert_pdfs(files):
+    """Convert a batch in one isolated LibreOffice process, without a console."""
+    if not files:
         return {}
     executable = pdf_available()
     if not executable:
         raise ValueError("PDF export needs LibreOffice. Install it, or download DOCX and export to PDF in Word.")
-    converted = {}
-    entries = list(documents.items())
-    # Keep Windows command lines short and give each batch an isolated profile.
-    for offset in range(0, len(entries), 20):
-        batch = entries[offset:offset + 20]
-        with tempfile.TemporaryDirectory(prefix="usecta-pdf-") as temp:
-            root = Path(temp)
-            sources = []
-            for index, (_, content) in enumerate(batch):
-                source = root / f"document-{index}.docx"
-                source.write_bytes(content)
-                sources.append(source)
-            command = [executable, f"-env:UserInstallation={(root / 'profile').as_uri()}",
-                       "--headless", "--convert-to", "pdf", "--outdir", str(root)]
+    with tempfile.TemporaryDirectory(prefix="usecta-pdf-") as temp:
+        root = Path(temp)
+        profile = root / "profile" / "user"
+        profile.mkdir(parents=True)
+        # No macros or linked-content refresh in the unattended converter.
+        (profile / "registrymodifications.xcu").write_text(
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<oor:items xmlns:oor="http://openoffice.org/2001/registry">'
+            '<item oor:path="/org.openoffice.Office.Common/Security/Scripting">'
+            '<prop oor:name="MacroSecurityLevel" oor:op="fuse"><value>3</value></prop></item>'
+            '<item oor:path="/org.openoffice.Office.Writer/Content/Update">'
+            '<prop oor:name="Link" oor:op="fuse"><value>0</value></prop></item>'
+            '</oor:items>', encoding="utf-8")
+        sources = []
+        for name, content in files.items():
+            if Path(name).name != name or not name.endswith(".docx"):
+                raise ValueError("Invalid PDF input filename.")
+            source = root / name
+            source.write_bytes(content)
+            sources.append(str(source))
+        # Limit batch size so Windows command-line length stays bounded.
+        for start in range(0, len(sources), 20):
             try:
-                result = subprocess.run(command + [str(source) for source in sources],
-                                        capture_output=True, timeout=max(90, 30 * len(batch)))
-            except subprocess.TimeoutExpired:
-                raise ValueError("PDF conversion took too long. Try fewer documents at a time.") from None
+                result = subprocess.run([executable, f"-env:UserInstallation={(root / 'profile').as_uri()}", "--headless", "--norestore", "--nodefault", "--convert-to", "pdf", "--outdir", str(root), *sources[start:start + 20]], capture_output=True, timeout=180,
+                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
+            except subprocess.TimeoutExpired as exc:
+                raise ValueError("PDF conversion timed out. Your DOCX files are still available.") from exc
             if result.returncode:
-                raise ValueError("LibreOffice could not convert these documents. Download DOCX and check the layout in Word.")
-            for (name, _), source in zip(batch, sources):
-                target = source.with_suffix('.pdf')
-                if not target.exists():
-                    raise ValueError(f"LibreOffice could not generate the PDF for {name}.")
-                content = target.read_bytes()
-                if not content.startswith(b'%PDF-'):
-                    raise ValueError(f"LibreOffice generated an invalid PDF for {name}.")
-                converted[name[:-5] + '.pdf'] = content
-    return converted
-
-
-def convert_pdf(content):
-    return convert_pdfs({'document.docx': content})['document.pdf']
+                raise ValueError("LibreOffice could not convert this batch. Your DOCX files are still available.")
+        targets = {name[:-5] + ".pdf": root / (name[:-5] + ".pdf") for name in files}
+        if not all(target.is_file() for target in targets.values()):
+            raise ValueError("LibreOffice could not convert this document. Download the DOCX and check its layout in Word.")
+        converted = {name: target.read_bytes() for name, target in targets.items()}
+        if not all(content.startswith(b"%PDF-") for content in converted.values()):
+            raise ValueError("LibreOffice generated an invalid PDF. Your DOCX files are still available.")
+        return converted
 
 
 def filename(name):
