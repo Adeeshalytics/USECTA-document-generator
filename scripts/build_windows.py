@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def main():
+    subprocess.run([sys.executable, str(ROOT / "scripts" / "prepare_icon.py")], cwd=ROOT, check=True)
     # Administrative MSI extraction puts VC runtimes and fonts outside program/.
     # Keep dependencies app-local, and fonts private to LibreOffice (no OS install).
     runtime = ROOT / "vendor" / "pdf-runtime"
@@ -20,7 +21,7 @@ def main():
     for source in (runtime / "Fonts").glob("*.ttf"):
         shutil.copy2(source, font_dir / source.name)
     subprocess.run([sys.executable, "-m", "pytest", "-q"], cwd=ROOT, check=True)
-    subprocess.run([sys.executable, "-m", "PyInstaller", "--noconfirm", str(ROOT / "USECTA.spec")], cwd=ROOT, check=True)
+    subprocess.run([sys.executable, "-m", "PyInstaller", "--clean", "--noconfirm", str(ROOT / "USECTA.spec")], cwd=ROOT, check=True)
     bundle = ROOT / "dist" / "USECTA-Document-Generator" / "_internal"
     config_dir = bundle / ".streamlit"
     config_dir.mkdir(exist_ok=True)

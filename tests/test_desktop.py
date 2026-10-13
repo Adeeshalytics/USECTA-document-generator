@@ -33,7 +33,7 @@ def test_desktop_ignores_cloud_secrets_and_never_contacts_supabase(tmp_path, mon
                         'ALLOWED_EMAILS': ['owner@example.com']})
     app.run()
     assert not app.exception
-    assert len(app.radio(key='page').options) == 6
+    assert len(app.radio(key='page').options) == 7
     assert len(store.catalog('SPMC/03/2026')) == 50
     assert not any(button.label == 'Sign in' for button in app.button)
     app.radio(key='page').set_value('Suppliers').run()
@@ -52,7 +52,7 @@ def prepared_folder(tmp_path):
     (folder / 'scripts').mkdir()
     for name in usb.SCRIPTS:
         shutil.copy2(ROOT / 'scripts' / name, folder / 'scripts' / name)
-    for name in ['company_templates', 'catalogues']:
+    for name in ['company_templates', 'catalogues', 'assets']:
         shutil.copytree(ROOT / name, folder / name)
     for name in ['python', 'libreoffice']:
         (folder / 'runtime' / name).mkdir(parents=True)

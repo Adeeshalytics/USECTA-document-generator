@@ -6,7 +6,7 @@ from functools import lru_cache
 from threading import RLock
 
 APP_NAME = "USECTA Document Generator"
-VERSION = "1.0.0"
+VERSION = "1.0.4"
 
 
 def asset_root():

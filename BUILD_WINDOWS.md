@@ -9,6 +9,8 @@ dependencies and vendor tools; installation and normal use do not.
    extracted contents under `vendor/pdf-runtime`, including `program/soffice.exe`,
    share, presets, fonts, and all licence/notices files. Do not copy only soffice.exe.
 4. Run `.venv\Scripts\python.exe scripts\build_windows.py`.
+   This also converts `assets/usecta-icon.png` into a seven-size Windows ICO
+   without changing the supplied artwork. Keep the PNG and ICO with the source.
    This keeps the extracted VC DLLs app-local and places bundled fonts in
    LibreOffice's private font folder; no system-wide font/runtime installation
    is needed. The self-contained converter is copied after freezing Python.

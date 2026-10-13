@@ -17,8 +17,8 @@ def main():
         os.environ['USECTA_DATA_DIR'] = temp
         from streamlit.testing.v1 import AppTest
         app = AppTest.from_file(str(ROOT / 'app.py'), default_timeout=30).run()
-        if app.exception or len(app.radio(key='page').options) != 6:
-            raise RuntimeError('Local app did not load the six workspace screens.')
+        if app.exception or len(app.radio(key='page').options) != 7:
+            raise RuntimeError('Local app did not load the seven workspace screens.')
         del os.environ['USECTA_DATA_DIR']
     import desktop
     process = subprocess.Popen([sys.executable, str(ROOT / 'desktop.py'), '--no-browser'], cwd=ROOT)

@@ -38,6 +38,10 @@ def run_smoke(report_root):
         qcontext = quotation_context({"quotation_number": "SAMPLE-QT", "customer_name": "Sample Customer", "customer_address": "", "currency": "USD", "document_date": "10 October 2026", "quotation_expiry_date": "17 October 2026", "shipment_mode": "", "container_details": "", "shipment_quantity": "", "packaging_details": "", "payment_terms": "", "quotation_notes": ""}, [{"description": "Sample Product", "quantity": 2, "unit": "kg", "unit_price": 100}])
         quote_ids = [t["id"] for t in store.templates() if t["workflow"] == "quotation"]
         assert len(generate_files(store, quotation_jobs(store, quote_ids, qcontext))) == 1
+        from sample_labels import label_files
+        label_docs = label_files("SAMPLE-IFB", ["Sample Product A", "Sample Product B", "Sample Product C"])
+        for name, content in label_docs.items():
+            (samples / name).write_bytes(content)
         store.save_record("Sample smoke run", {"jobs": jobs, "with_pdf": False})
         backup = export_workspace(store)
         restored = Store(root / "restored")
@@ -56,12 +60,16 @@ def run_smoke(report_root):
             for name, content in pdfs.items():
                 (samples / name).write_bytes(content)
             pdf_status = "passed"
+            label_pdfs = convert_pdfs(label_docs)
+            assert len(label_pdfs) == 1 and all(data.startswith(b"%PDF-") for data in label_pdfs.values())
+            for name, content in label_pdfs.items():
+                (samples / name).write_bytes(content)
         try:
             socket.create_connection(("example.com", 443), timeout=1)
         except OSError:
             network_status = "external connection blocked"
         else:
             raise AssertionError("External connection was not blocked")
-        report = {"status": "passed", "network": network_status, "pdf": pdf_status, "templates": 7, "catalogue_items": 50, "docx_files": 11, "backup_restore": "passed", "company_import": "passed", "timings": timings}
+        report = {"status": "passed", "network": network_status, "pdf": pdf_status, "templates": 7, "catalogue_items": 50, "docx_files": 11, "sample_labels_docx": "passed", "sample_labels_pdf": "passed" if pdf_status == "passed" else "unavailable", "backup_restore": "passed", "company_import": "passed", "timings": timings}
         report_root.mkdir(parents=True, exist_ok=True)
         (report_root / "offline-smoke.json").write_text(json.dumps(report, indent=2))

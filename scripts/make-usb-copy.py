@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 FILES = ['app.py', 'documents.py', 'workflows.py', 'cloud_access.py', 'cloud_store.py', 'desktop.py',
          'desktop_paths.py', 'backup_ui.py', 'workspace_archive.py',
+         'sample_labels.py', 'sample_labels_ui.py',
          'requirements.txt', 'LOCAL_DESKTOP.md', 'setup-desktop.bat', 'Open USECTA.bat',
          'Stop USECTA.bat', 'Create desktop shortcuts.bat', 'Make USB copy.bat']
 SCRIPTS = ['check-desktop.py', 'create-desktop-shortcuts.ps1', 'setup-desktop.ps1', 'make-usb-copy.py']
@@ -56,7 +57,7 @@ def assemble(root, destination, include_data=False):
         (temporary / 'scripts').mkdir()
         for name in SCRIPTS:
             shutil.copy2(root / 'scripts' / name, temporary / 'scripts' / name)
-        for name in ['company_templates', 'catalogues']:
+        for name in ['company_templates', 'catalogues', 'assets']:
             shutil.copytree(root / name, temporary / name)
         # Copy only known runtime folders. Downloads, secrets, .git and .venv are excluded.
         (temporary / 'runtime').mkdir()

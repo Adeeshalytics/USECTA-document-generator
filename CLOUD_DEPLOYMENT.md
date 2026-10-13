@@ -37,6 +37,18 @@ Deploy. Streamlit installs Python dependencies from `requirements.txt` and Libre
 
 ## 4. First login and checks
 
+Version 1.0.4 includes direct bid-validity date saving, clearer required-field
+guidance, the supplied application icon and Sample labels. New labels use
+separate four-border boxes with small gaps. They do not need supplier or bid
+validity data. Saved label inputs are stored in the existing shared workspace;
+no new database table or credentials are required. Generated Word/PDF files
+are downloads, not local company exports or uploaded storage objects.
+
+The source suite passed 74 tests with two legacy PDF-text checks skipped. A
+simulated cloud-backend test verifies label generation, persistence after a
+fresh cache, original-layout regeneration and absence of local label exports.
+This does not replace verification of the deployed app after sign-in.
+
 Sign in with the account created in Supabase. On first login the app imports the six supplied templates, quotation starter, and SPMC/03/2026 catalogue into Supabase. Existing saved templates and edited catalogues are retained on subsequent starts.
 
 Enter the bid acceptance validity date in **Tenders & items** before generating a Bid Form.

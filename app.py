@@ -15,7 +15,8 @@ from workflows import (QUOTE_COMPUTED, SUPPLIER_FIELDS, TENDER_COMPUTED, choose_
                        create_quotation_template, generate_files, import_catalog, long_date,
                        prepare_workspace, quotation_context, quotation_jobs, tender_context, tender_jobs)
 
-st.set_page_config(page_title="USECTA Documents", page_icon="📄", layout="wide")
+APP_ICON = asset_root() / "assets" / "usecta-icon.png"
+st.set_page_config(page_title="USECTA Documents", page_icon=str(APP_ICON) if APP_ICON.is_file() else "📄", layout="wide")
 from cloud_access import workspace_store
 
 store, cloud_mode = workspace_store()
@@ -31,7 +32,7 @@ except (RuntimeError, ValueError, OSError) as exc:
 # Widget values survive switching between screens. Button, uploader, and editor
 # states are deliberately excluded because Streamlit prohibits assigning them.
 for draft_key in list(st.session_state):
-    if draft_key in {"tender_reference", "tender_templates", "tender_supplier", "tender_document_date", "tender_effective_date", "quotation_templates", "quotation_number", "quotation_currency", "quotation_date", "quotation_expiry", "edit_tender", "catalog_reference", "edit_supplier", "pdf_tender", "pdf_quotation"} or draft_key.startswith(("selected_items_", "tender_run_", "tender_extra_", "quote_", "catalog_ref_", "catalog_title_", "catalog_date_", "catalog_time_", "catalog_has_validity_", "catalog_validity_", "supplier_")):
+    if draft_key in {"tender_reference", "tender_templates", "tender_supplier", "tender_document_date", "tender_effective_date", "quotation_templates", "quotation_number", "quotation_currency", "quotation_date", "quotation_expiry", "edit_tender", "catalog_reference", "edit_supplier", "pdf_tender", "pdf_quotation"} or draft_key.startswith(("selected_items_", "tender_run_", "tender_extra_", "quote_", "catalog_ref_", "catalog_title_", "catalog_date_", "catalog_time_", "catalog_has_validity_", "catalog_validity_", "supplier_", "labels_")) and draft_key != "labels_generate" and draft_key != "labels_load":
         st.session_state[draft_key] = st.session_state[draft_key]
 COMPANY = {"company_name": "USECTA (Pvt) Ltd", "company_address": "33/5 Boruppa Road, Pallegunnepana, Gunnepana Kandy"}
 SCOPES = {"batch": "One document with the selected item list", "item": "One document per item",
@@ -66,6 +67,11 @@ def extra_fields(keys, required, prefix):
         widget = st.text_area if "address" in key or "notes" in key or "terms" in key else st.text_input
         values[key] = widget(label, key=f"{prefix}_{key}")
     return values
+
+
+def open_editor(page, key, value):
+    st.session_state["page"] = page
+    st.session_state[key] = value
 
 
 def generate_panel(workflow, jobs, fingerprint, can_generate, run_name):
@@ -114,6 +120,8 @@ def generate_panel(workflow, jobs, fingerprint, can_generate, run_name):
 st.title("USECTA document workspace")
 st.caption("Your company details stay in your templates. Select a tender and its item numbers, or create a separate quotation.")
 with st.sidebar:
+    if APP_ICON.is_file():
+        st.image(str(APP_ICON), width=72)
     if os.environ.get("USECTA_CONTROL_URL") and st.button("Exit application", key="exit_application"):
         from urllib.request import Request, build_opener, ProxyHandler
         request = Request(os.environ["USECTA_CONTROL_URL"] + "/stop", data=b"", headers={"X-USECTA-Token": os.environ["USECTA_CONTROL_TOKEN"]}, method="POST")
@@ -121,7 +129,7 @@ with st.sidebar:
             pass
         st.info("USECTA is closing. You can close this browser tab.")
         st.stop()
-    pages = ["Tender documents", "Quotations", "Tenders & items", "Suppliers", "Templates"]
+    pages = ["Tender documents", "Quotations", "Sample labels", "Tenders & items", "Suppliers", "Templates"]
     if not cloud_mode:
         pages.append("Backup & sharing")
     page = st.radio("Workspace", pages, key="page")
@@ -138,12 +146,16 @@ with st.sidebar:
         record = by_record[record_id] if cloud_mode else store.record(record_id)
         payload = json.loads(record["payload"])
         st.download_button("Download saved details", json.dumps(payload, indent=2).encode(), file_name=filename(record["name"]) + ".json", mime="application/json")
-        if "jobs" in payload:
-            st.caption("Regenerates using the saved item and supplier details, even if the catalogue has since changed.")
+        if "jobs" in payload or payload.get("workflow") == "sample_labels":
+            st.caption("Regenerates the saved product names and IFB number." if payload.get("workflow") == "sample_labels" else "Regenerates using the saved item and supplier details, even if the catalogue has since changed.")
             if st.button("Regenerate saved run"):
                 st.session_state.pop("history_output", None)
                 try:
-                    files = generate_files(store, payload["jobs"])
+                    if payload.get("workflow") == "sample_labels":
+                        from sample_labels import label_files
+                        files = label_files(payload["ifb_number"], payload["product_names"], payload["layout_version"])
+                    else:
+                        files = generate_files(store, payload["jobs"])
                     if payload.get("with_pdf", False):
                         try:
                             files.update(convert_pdfs(files))
@@ -174,8 +186,8 @@ if page == "Tender documents":
     if reference:
         tender = tenders[reference]
         st.caption(f"Closing: {tender['closing_date']} at {tender['closing_time']} · Bid validity: {tender.get('bid_valid_until') or 'not specified'}")
-        if "bid_valid_until" in required and not tender.get("bid_valid_until"):
-            st.warning("The Bid Form needs a bid acceptance validity date. Set it in Tenders & items before generating that form, or deselect the Bid Form to generate your other documents.")
+        st.button("Edit tender dates", key="edit_tender_dates", on_click=open_editor,
+                  args=("Tenders & items", "edit_tender", reference))
         catalog = {r["item_number"]: r for r in store.catalog(reference)}
         numbers = st.multiselect("Item numbers — search or select", list(catalog),
             format_func=lambda n: f"{n} — {catalog[n]['description']}", key=f"selected_items_{reference}")
@@ -189,6 +201,9 @@ if page == "Tender documents":
         supplier_id = st.selectbox("Supplier for these items", [None] + list(suppliers),
             format_func=lambda key: "No supplier selected" if key is None else suppliers[key]["supplier_name"], key="tender_supplier")
         supplier = suppliers.get(supplier_id, {})
+        if supplier_id:
+            st.button("Edit selected supplier", key="edit_selected_supplier", on_click=open_editor,
+                      args=("Suppliers", "edit_supplier", supplier_id))
         st.caption("Select only the items supplied by this supplier. Repeat for another supplier. Collection and personnel letters can include items across suppliers.")
         a, b = st.columns(2)
         document_date = a.date_input("Letter / bid form date", key="tender_document_date")
@@ -258,12 +273,17 @@ if page == "Tenders & items":
         left, right = st.columns(2)
         closing = left.date_input("Closing date *", value=date.fromisoformat(current["closing_date"]) if current else date.today(), key=f"catalog_date_{prefix}")
         clock = right.time_input("Closing time *", value=time.fromisoformat(current.get("closing_time", "10:00")), key=f"catalog_time_{prefix}")
-        has_validity = st.checkbox("Specify bid acceptance validity date", value=bool(current.get("bid_valid_until")), key=f"catalog_has_validity_{prefix}")
-        validity = st.date_input("Bid acceptance validity date", value=date.fromisoformat(current["bid_valid_until"]) if current.get("bid_valid_until") else closing, key=f"catalog_validity_{prefix}")
+        validity = st.date_input("Bid acceptance validity date (required for Bid Form)",
+            value=date.fromisoformat(current["bid_valid_until"]) if current.get("bid_valid_until") else None,
+            key=f"catalog_validity_date_{prefix}", format="YYYY/MM/DD",
+            help="Choose the actual bid validity date stated in the tender. Every date entered here is saved; there is no enable checkbox.")
+        st.caption("Separate from the closing date. Leave blank only if you do not yet know the validity date; the Bid Form cannot be generated until it is saved.")
         if st.form_submit_button("Save tender"):
             try:
-                store.save_tender(ref, {"tender_title": title, "closing_date": closing.isoformat(), "closing_time": clock.strftime("%H:%M"), "bid_valid_until": validity.isoformat() if has_validity else ""})
-                st.success("Tender saved. Select it below to add its catalogue.")
+                store.save_tender(ref, {"tender_title": title, "closing_date": closing.isoformat(), "closing_time": clock.strftime("%H:%M"), "bid_valid_until": validity.isoformat() if validity else ""})
+                st.success("Tender saved. Bid acceptance validity date: " + (validity.isoformat() if validity else "not specified") + ".")
+                if not validity:
+                    st.info("No bid acceptance validity date was saved. You can prepare other documents, but the Bid Form needs that date.")
             except ValueError as exc:
                 st.error(str(exc))
     references = list(store.tenders())
@@ -313,6 +333,7 @@ if page == "Tenders & items":
 
 if page == "Suppliers":
     st.subheader("Reusable supplier profiles")
+    st.caption("Agency Agreements require the supplier's name, country, registered address and Registration number. Saving a profile does not mean every document's required details are complete.")
     suppliers = store.suppliers()
     editing = st.selectbox("Create or edit supplier", [None] + list(suppliers), format_func=lambda key: "New supplier" if key is None else suppliers[key]["supplier_name"], key="edit_supplier")
     current = suppliers.get(editing, {})
@@ -377,6 +398,10 @@ if page == "Templates":
 if page == "Backup & sharing":
     from backup_ui import render_backup_screen
     render_backup_screen(store)
+
+if page == "Sample labels":
+    from sample_labels_ui import render_sample_labels
+    render_sample_labels(store, cloud_mode, download_files)
 
 if page != "Quotations":
     st.session_state["_quote_editor_visible"] = False

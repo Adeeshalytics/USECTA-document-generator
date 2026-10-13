@@ -10,7 +10,7 @@ from pathlib import Path
 from datetime import date, time
 from decimal import ROUND_HALF_UP
 
-from documents import (CENT, Store, build_context, convert_pdf, filename, money,
+from documents import (CENT, FIELDS, Store, build_context, convert_pdf, filename, money,
                        render_document, template_variables)
 from desktop_paths import asset_root
 
@@ -25,6 +25,23 @@ TENDER_COMPUTED = {"bid_reference", "closing_date_long", "closing_date_short", "
                    "agreement_item_names", "item_quantity_kg"}
 QUOTE_COMPUTED = {"items", "quotation_items", "subtotal", "grand_total"}
 CATALOG_COLUMNS = ["item_number", "description", "document_fee"]
+
+
+def required_field_help(field):
+    """Explain where to supply missing data, rather than showing placeholder IDs."""
+    if field in {"agreement_item_names", "tender_items", "item_number", "item_description"}:
+        return "Select at least one item under Item numbers — search or select."
+    if field == "bid_valid_until":
+        return "Enter the bid acceptance validity date in Tenders & items and click Save tender. This is separate from the closing date."
+    if field in SUPPLIER_FIELDS:
+        return f"Enter {SUPPLIER_FIELDS[field]} in Suppliers, save the supplier, then select that profile under Supplier for these items."
+    label = FIELDS.get(field, field.replace("_", " ").title())
+    return f"Complete {label} in the fields above."
+
+
+def missing_required(context, required):
+    return [field for field in required if not context.get(field) or
+            (isinstance(context[field], str) and not context[field].strip())]
 
 
 def iso_date(value, label):
@@ -156,6 +173,7 @@ def tender_context(reference, tender, rows, supplier, document_date, effective_d
 def tender_jobs(store, template_ids, context):
     templates = {t["id"]: t for t in store.templates()}
     jobs = []
+    problems = []
     for key in template_ids:
         template = templates[key]
         if template["workflow"] != "tender":
@@ -166,16 +184,27 @@ def tender_jobs(store, template_ids, context):
         contexts = [context]
         if template["scope"] == "item":
             if not context["tender_items"]:
-                raise ValueError("Select at least one item for per-item documents.")
+                problems.append(f"{template['name']}: Select at least one item under Item numbers — search or select.")
+                # Also report missing dates/supplier details, so users can fix
+                # all prerequisites together instead of chasing one at a time.
+                missing = missing_required(context, template["required"])
+                hints = list(dict.fromkeys(required_field_help(field) for field in missing
+                                          if field not in {"item_number", "item_description", "tender_items", "agreement_item_names"}))
+                if hints:
+                    problems.append(f"{template['name']}: " + " ".join(hints))
+                continue
             contexts = [context | {"item_number": row["item_number"], "item_description": row["description"], "item_quantity_kg": row["quantity_kg"]} for row in context["tender_items"]]
         for current in contexts:
-            missing = [field for field in template["required"] if not current.get(field) or
-                       (isinstance(current[field], str) and not current[field].strip())]
+            missing = missing_required(current, template["required"])
             if missing:
-                raise ValueError(f"{template['name']}: complete required fields: " + ", ".join(missing))
+                hints = list(dict.fromkeys(required_field_help(field) for field in missing))
+                problems.append(f"{template['name']}: " + " ".join(hints))
+                continue
             suffix = f"_item_{filename(current['item_number'])}" if template["scope"] == "item" else ""
             stem = f"{filename(context['bid_reference'])}_{filename(template['name'])}{suffix}_{key[:8]}"
             jobs.append({"template_id": key, "context": {name: current[name] for name in variables if name in current}, "filename": stem})
+    if problems:
+        raise ValueError("Before generating these documents:\n\n" + "\n\n".join(dict.fromkeys(problems)))
     return jobs
 
 
@@ -201,9 +230,9 @@ def quotation_jobs(store, template_ids, context):
         variables = template_variables(store.template_path(template).read_bytes())
         if variables & TENDER_COMPUTED:
             raise ValueError("Quotation templates cannot use tender fields or tender item lists.")
-        missing = [field for field in template["required"] if not context.get(field)]
+        missing = missing_required(context, template["required"])
         if missing:
-            raise ValueError(f"{template['name']}: complete required fields: " + ", ".join(missing))
+            raise ValueError(f"{template['name']}: " + " ".join(required_field_help(field) for field in missing))
         jobs.append({"template_id": key, "context": {name: context[name] for name in variables if name in context},
                      "filename": filename(context.get("quotation_number", "Quotation")) + "_" + filename(template["name"]) + "_" + key[:8]})
     return jobs

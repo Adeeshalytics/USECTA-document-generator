@@ -9,6 +9,21 @@ label a release production-ready solely because source tests pass.
 - Launch a second time: one server remains active and the existing page opens.
 - Generate all six tender templates and an independent quotation. Verify required
   fields are enforced, per-item counts, quotation arithmetic and output location.
+- Enter and save a bid validity date without any enable checkbox; verify it
+  survives restart. Clear it explicitly, then confirm Bid Form is blocked but
+  envelopes still work. Reject a date before closing without altering saved data.
+- Confirm missing supplier/item/date guidance is consolidated and uses readable
+  labels. Complete the details and verify all selected templates generate.
+- Verify the supplied icon on the executable, setup/uninstaller, desktop and
+  Start-menu shortcuts, and in the application sidebar/browser favicon.
+- Generate Sample labels manually and from catalogue selections. Edit names
+  and IFB number without changing catalogue data; verify two copies per product.
+  Check Letter page size, Actual size / 100% print instructions, long-name
+  wrapping, multiple pages, saved-run regeneration and PDF failure recovery.
+  Generate 16 short products and 100 products; verify dense automatic page
+  filling, exactly two copies, no split pairs, missing labels or blank pages.
+  Verify every label has four borders with blank gaps between rows/columns.
+  Regenerate layout-1 and layout-2 runs and confirm their old layouts are retained.
 - Render PDF copies using the bundled runtime; review all six document types,
   logos, fonts, headers/footers, signatures and long-name/50-item pagination.
 - Enter quotation and tender drafts, navigate between screens, and verify values

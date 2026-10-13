@@ -5,8 +5,9 @@ from PyInstaller.utils.hooks import collect_all, collect_submodules, copy_metada
 root = Path(SPECPATH)
 datas = [(str(root / name), ".") for name in ["app.py", "OFFLINE_USER_GUIDE.md", "THIRD_PARTY_NOTICES.md"]]
 datas += [(str(root / "company_templates"), "company_templates"), (str(root / "catalogues"), "catalogues")]
+datas += [(str(root / "assets"), "assets")]
 binaries = []
-hidden = ["documents", "workflows", "cloud_access", "backup_ui", "workspace_archive", "offline_smoke", "desktop_paths"]
+hidden = ["documents", "workflows", "cloud_access", "backup_ui", "workspace_archive", "offline_smoke", "desktop_paths", "sample_labels", "sample_labels_ui"]
 for package in ["streamlit", "docxtpl", "docx", "openpyxl", "uvicorn", "websockets", "httptools", "anyio"]:
     package_data, package_binaries, package_hidden = collect_all(package)
     datas += package_data
@@ -26,5 +27,5 @@ a = Analysis([str(root / "launcher.py")], pathex=[str(root)], binaries=binaries,
 pyz = PYZ(a.pure)
 exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name="USECTA-Document-Generator",
           debug=False, bootloader_ignore_signals=False, strip=False, upx=False,
-          console=False, disable_windowed_traceback=False)
+          console=False, disable_windowed_traceback=False, icon=str(root / "assets" / "usecta-icon.ico"))
 coll = COLLECT(exe, a.binaries, a.datas, strip=False, upx=False, name="USECTA-Document-Generator")

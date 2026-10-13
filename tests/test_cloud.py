@@ -132,7 +132,7 @@ def test_company_login_expiry_and_logout(monkeypatch, tmp_path):
     app.text_input[1].set_value('test-password')
     app.button[0].click().run()
     assert not app.exception
-    assert len(app.radio(key='page').options) == 5
+    assert len(app.radio(key='page').options) == 6
     assert len(cloud.catalog('SPMC/03/2026')) == 50
     assert set(app.session_state['company_login']) == {'email', 'expires_at'}
     next(button for button in app.button if button.label == 'Sign out').click().run()
@@ -156,3 +156,40 @@ def test_api_does_not_expose_error_body_or_credentials(monkeypatch):
         SupabaseAPI('https://example.supabase.co', 'sb_secret_example').request('GET', '/rest/v1/usecta_entries')
     assert 'private details' not in str(error.value)
     assert 'sb_secret_example' not in str(error.value)
+
+
+def test_cloud_sample_labels_save_and_regenerate_without_local_exports(monkeypatch, tmp_path):
+    import time
+    import cloud_access
+    import documents
+    from sample_labels import LAYOUT_VERSION
+
+    server = FakeServer()
+    cloud = SupabaseStore(server, cache_root=tmp_path / 'cache')
+    monkeypatch.setattr(cloud_access, 'SupabaseStore', lambda api: cloud)
+    monkeypatch.setattr(documents, 'pdf_available', lambda: None)
+    app = AppTest.from_file(str(Path(__file__).parents[1] / 'app.py'), default_timeout=20)
+    app.secrets.update({'STORAGE_BACKEND': 'supabase', 'SUPABASE_URL': 'https://example.supabase.co',
+                        'SUPABASE_SECRET_KEY': 'server-placeholder', 'SUPABASE_PUBLISHABLE_KEY': 'public-placeholder',
+                        'ALLOWED_EMAILS': ['owner@example.com']})
+    # Authenticated test state only; the real login guard is tested above.
+    app.session_state['company_login'] = {'email': 'owner@example.com', 'expires_at': time.time() + 1200}
+    app.run()
+    app.radio(key='page').set_value('Sample labels').run()
+    app.text_input(key='labels_ifb').set_value('TEST-CLOUD-IFB').run()
+    app.text_area(key='labels_names').set_value('Test product A\nTest product B').run()
+    app.button(key='labels_generate').click().run()
+    assert not app.exception and not app.error
+    original = app.session_state['labels_output']['files']
+    assert not list(tmp_path.rglob('*.docx')), 'Cloud labels must not write local exports'
+    restarted = SupabaseStore(server, cache_root=tmp_path / 'empty-cache')
+    record = restarted.records()[0]
+    payload = json.loads(record['payload'])
+    assert payload['layout_version'] == LAYOUT_VERSION == 3
+    assert payload['ifb_number'] == 'TEST-CLOUD-IFB'
+    assert payload['product_names'] == ['Test product A', 'Test product B']
+    assert 'output_directory' not in payload
+    app.run()  # Refresh the sidebar, which was rendered before this run was saved.
+    app.selectbox(key='history').set_value(record['id']).run()
+    next(button for button in app.button if button.label == 'Regenerate saved run').click().run()
+    assert not app.exception and app.session_state['history_output']['files'] == original

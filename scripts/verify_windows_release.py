@@ -4,12 +4,14 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import time
 import uuid
 import winreg
 from urllib.request import build_opener, ProxyHandler
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 OPENER = build_opener(ProxyHandler({}))
 
 
@@ -26,6 +28,10 @@ def check_application(executable, audit):
     run(executable, "--self-test", "--data-dir", audit)
     smoke = json.loads((audit / "offline-smoke.json").read_text())
     assert smoke["status"] == smoke["pdf"] == "passed"
+    assert smoke["sample_labels_docx"] == smoke["sample_labels_pdf"] == "passed"
+    from sample_labels import labels_document
+    expected_labels = labels_document("SAMPLE-IFB", ["Sample Product A", "Sample Product B", "Sample Product C"])
+    assert (audit / "samples" / "SAMPLE-IFB_Sample_labels.docx").read_bytes() == expected_labels, "Packaged labels differ from final verified source"
     data = audit / "workspace"
     env = os.environ.copy()
     env["PATH"] = str(Path(os.environ["SystemRoot"]) / "System32")

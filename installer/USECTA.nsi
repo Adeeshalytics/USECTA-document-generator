@@ -7,7 +7,7 @@ Unicode true
 !ifndef BUILDROOT
   !define BUILDROOT ".."
 !endif
-!define VERSION "1.0.0"
+!define VERSION "1.0.4"
 !define APPNAME "USECTA Document Generator"
 !define EXENAME "USECTA-Document-Generator.exe"
 !define UNINSTALLKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\USECTA-Document-Generator"
@@ -20,7 +20,7 @@ RequestExecutionLevel user
 ; Favor quick builds/extraction over the smallest possible pendrive download.
 SetCompressor /SOLID zlib
 BrandingText "USECTA (Pvt) Ltd — offline edition"
-VIProductVersion "1.0.0.0"
+VIProductVersion "1.0.4.0"
 VIAddVersionKey "ProductName" "${APPNAME}"
 VIAddVersionKey "CompanyName" "USECTA (Pvt) Ltd"
 VIAddVersionKey "FileDescription" "Offline Windows installer"
@@ -28,6 +28,8 @@ VIAddVersionKey "FileVersion" "${VERSION}"
 VIAddVersionKey "LegalCopyright" "USECTA (Pvt) Ltd"
 
 !define MUI_ABORTWARNING
+!define MUI_ICON "${BUILDROOT}\assets\usecta-icon.ico"
+!define MUI_UNICON "${BUILDROOT}\assets\usecta-icon.ico"
 !define MUI_WELCOMEPAGE_TEXT "Install USECTA Document Generator on this computer.$\r$\n$\r$\nPython, templates and the PDF converter are included. Installation and use do not require internet access.$\r$\n$\r$\nExisting local records are preserved."
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_INSTFILES

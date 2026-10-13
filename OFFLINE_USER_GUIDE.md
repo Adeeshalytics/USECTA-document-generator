@@ -2,7 +2,7 @@
 
 ## Install from a pendrive
 
-Copy USECTA-Document-Generator-Setup-1.0.0.exe to the computer and run it.
+Copy USECTA-Document-Generator-Setup-1.0.4.exe to the computer and run it.
 Windows 10/11, 64-bit is required. No Python, internet, Office, or database
 server is required. The PDF converter is included. Install while USECTA is
 closed. Open USECTA Document Generator using the desktop or Start-menu shortcut.
@@ -39,9 +39,40 @@ The original collection/cover footer wording and typed agreement page counts
 remain as supplied. Edit the relevant Word template and import a new version
 if those should change.
 
+The validity field starts blank when unknown. Every date you enter is saved
+when you click Save tender; no enable checkbox is required. Clear the field
+and save only if you intend to remove the validity date. The saved-date
+confirmation states whether a date was recorded.
+
+For Agency Agreements, select the relevant item numbers and a supplier with
+its Registration number, country and registered address filled in. The item
+names are taken automatically from the selected catalogue rows. Use Edit tender
+dates or Edit selected supplier to jump directly to the relevant editor.
+Generation is disabled until all selected documents' required data is complete.
+
 Use Quotations for independent products, units, prices and terms. This workflow
 does not use tender catalogue fees. No automatic taxes or currency conversion
 are applied.
+
+## Sample labels
+
+Open Sample labels in the sidebar. Enter the IFB number and one product name
+per line, or choose a tender and item numbers and click Load selected items into
+labels. Edit the exact specifications before generating; this does not edit the
+saved catalogue. Each product receives two identical bordered labels. Compact
+rows fit their text and automatically fill the available sheet height, without
+large gaps or three-product page breaks. Product text is 14 point and IFB text
+12 point; long names wrap and grow their row without clipping. Every label has
+its own four borders, with a small blank gap between rows and between columns.
+Label size is not fixed; pre-cut sheets need calibration.
+
+Word labels are editable; PDF is recommended for printing. Print on Letter
+paper (8.5 by 11 inches) at Actual size / 100%, not Fit to page. Test first on
+plain paper before using sticker stock. Do not assume this layout aligns with
+an unspecified pre-cut sticker sheet. Saved label runs can be regenerated using
+their original product names, IFB number and layout. Older saved runs retain
+their original layout; generate a new run to get separated labels. No supplier or bid validity date
+is required for labels. Optional PDF failure does not discard Word output.
 
 ## Backup, restore and company sharing
 

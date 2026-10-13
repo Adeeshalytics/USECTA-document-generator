@@ -13,6 +13,7 @@ foreach ($Entry in @(@('USECTA Documents', ''), @('Stop USECTA Documents', ' --s
     $Shortcut.Arguments = '"' + (Join-Path $Project 'desktop.py') + '"' + $Entry[1]
     $Shortcut.WorkingDirectory = $Project
     $Shortcut.Description = 'USECTA local document generator'
+    $Shortcut.IconLocation = (Join-Path $Project 'assets\usecta-icon.ico') + ',0'
     $Shortcut.Save()
 }
 Write-Host 'Created USECTA Documents and Stop USECTA Documents desktop shortcuts.'

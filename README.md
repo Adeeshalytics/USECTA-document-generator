@@ -6,6 +6,13 @@ restore, company share packages, and a bundled PDF converter. See
 or [BUILD_WINDOWS.md](BUILD_WINDOWS.md) for producing the pendrive installer.
 The source/cloud workflows below remain available for development.
 
+Sample labels can be generated from the new sidebar screen with editable product
+names and IFB number, two bordered copies per product, and Word/PDF downloads.
+New runs pack separate bordered labels with small gaps onto each sheet. See
+[SEPARATE_LABELS_1.0.4.md](SEPARATE_LABELS_1.0.4.md) for the current layout;
+[COMPACT_LABELS_1.0.3.md](COMPACT_LABELS_1.0.3.md) describes the earlier joined layout;
+[SAMPLE_LABELS_1.0.2.md](SAMPLE_LABELS_1.0.2.md) documents the original format.
+
 The existing source-folder/USB setup remains available through
 **setup-desktop.bat** and **Make USB copy.bat**; see
 [LOCAL_DESKTOP.md](LOCAL_DESKTOP.md). It is separate from the installable edition.

@@ -28,6 +28,65 @@ connection is required. Each staff computer is independent, not synchronized.
 
 ## Checks completed
 
+- The 1.0.4 source separates every new label into its own four-border box,
+  with small gaps between rows and columns. 73 source tests passed; two legacy
+  PDF-text checks skipped. Eleven rendered pages were visually reviewed.
+  PDF geometry checks verified four connected, independent borders per label,
+  gaps, no blank pages, complete IFB/name pairs and no clipped text. The
+  100-product run contains all 200 labels on seven sheets; 16 short products
+  fit 32 labels on one sheet. Layouts 1 and 2 still reproduce old saved output
+  byte-for-byte. See SEPARATE_LABELS_1.0.4.md for the current layout.
+
+- The 1.0.4 installer updated the existing installation successfully. Installed
+  Word/PDF output matched the final source, and the installed PDF passed the
+  independent four-border geometry check. Backup/import and lifecycle checks
+  passed; all 37 protected company files retained their original hashes.
+  Current evidence is in release/ACCEPTANCE_REPORT-1.0.4.json. The supplied icon
+  remains verified in the executables and shortcuts. Production caveats below
+  still apply.
+
+- The 1.0.3 source adds dense, variable-height sample labels, automatic page
+  filling and backward-compatible regeneration of layout-1 saved runs.
+  72 source tests passed; two legacy PDF-text checks skipped. Ten rendered
+  pages were visually reviewed. Separate PDF checks verified all 200 labels
+  from a 100-product run, intact pairs, IFB numbers, printable bounds and no
+  blank pages. Eighteen short products fit 36 labels on one Letter sheet.
+  See COMPACT_LABELS_1.0.3.md for measured capacity and print constraints.
+
+- The 1.0.3 installer updated the existing installation successfully. Installed
+  Word/PDF, backup/import and lifecycle checks passed. All 33 protected company
+  database, template and export files retained their exact hashes. Label output
+  matched final source bytes; executable, installer and shortcut icons passed.
+  Historical evidence is in release/ACCEPTANCE_REPORT-1.0.3.json. The unsigned build
+  still requires the production acceptance checks below.
+
+- Release 1.0.2 adds editable Sample labels recreated from the supplied PDF,
+  with two copies per product, catalogue loading, Word/PDF downloads and saved
+  regeneration. The complete source suite passed 70 tests; two legacy PDF-text
+  checks skipped. Five rendered pages were visually checked, including long
+  names and multi-page output; the real packaged interface generated Word/PDF.
+- The 1.0.2 installer updated the existing user installation successfully.
+  Installed label output matched final source output byte-for-byte. DOCX/PDF,
+  backup/import, offline-network protection and lifecycle checks passed;
+  existing database, template and export hashes were unchanged. The supplied
+  icon was verified in the installer/executable and both shortcuts.
+  Historical evidence is in release/ACCEPTANCE_REPORT-1.0.2.json. See
+  SAMPLE_LABELS_1.0.2.md for printing guidance and layout limitations.
+- Installed 1.0.2 measurements on this computer: launch 3.633 seconds cold /
+  1.812 seconds on restart, ten tender DOCX files 0.706 seconds and ten tender
+  PDFs 44.713 seconds. Clean staff-PC performance remains unverified.
+
+- Maintenance release 1.0.1 corrects the reported date-saving interface and
+  missing-field guidance, adds editor shortcuts and the supplied application
+  icon. Its combined source suite passed 58 tests; two PDF-text tests skipped.
+  See FIXES_1.0.1.md for the exact fixes and verification scope.
+- The 1.0.1 installer successfully updated the existing user installation.
+  Installed DOCX/PDF, backup/import and lifecycle checks passed; the existing
+  database and template hashes were unchanged. The reported date issue was
+  also verified through the packaged interface in an isolated workspace.
+  Historical evidence is in release/ACCEPTANCE_REPORT-1.0.1.json; the older
+  release/ACCEPTANCE_REPORT.json below describes the original 1.0.0 acceptance.
+
 - 46 source tests passed; one legacy PDF-text extraction test skipped because
   `pdftotext` is unavailable. A separate real converter smoke check passed.
 - Before the GitHub push, the combined suite including the repository's existing
