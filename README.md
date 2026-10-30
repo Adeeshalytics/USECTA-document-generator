@@ -14,18 +14,36 @@ New runs pack separate bordered labels with small gaps onto each sheet. See
 [SAMPLE_LABELS_1.0.2.md](SAMPLE_LABELS_1.0.2.md) documents the original format.
 
 **Statement of Compliance** is a separate sidebar screen for the supplied SPMC
-20-entry form. Load an item from a tender catalogue and a foreign bidder from
-Suppliers, or enter them manually. Edit offered specifications, quantities,
-delivery, packaging, prices, compliance responses and all three parties' contacts.
-USECTA's local-agent contacts are prefilled. The blank form's offer and security
-validity dates (1 February 2027 and 1 March 2027) are editable; confirm them for
-each tender. No compliance response, price or bid-security submission is assumed.
-Generate Word/PDF downloads or a ZIP, and regenerate the exact saved details and
-template from Saved runs. Partial responses can be downloaded as drafts; the
-signature/seal area stays empty. The editable template is downloadable on this
-screen and is bundled under `assets/Statement of Compliance.docx`. Longer content
-can expand beyond the reference's two pages. PDF uses the existing LibreOffice
-converter; Word remains available if PDF conversion fails.
+20-entry form. Choose a supplier and tender, then select **multiple items**.
+Enter manufacturer, bidder, local-agent contacts and common responses once.
+Edit entries 6-9 (transport/port, C&F price per kg, commission, optional total
+override) in the item table. Totals calculate quantity × C&F price with decimal
+rounding; commission is recorded separately. Amounts in words follow the total
+in USD, EUR, GBP or LKR. A manual total/wording override is available per item.
+
+**Save changes** persists unfinished drafts with that supplier and tender in
+SQLite locally or Supabase online, without generating files. Selecting the same
+supplier/tender restores selected items and every edited value after a restart.
+Supplier-wide details carry into new tender drafts; tender dates stay separate.
+Switching suppliers or screens also preserves current unsaved session drafts.
+Generation saves the draft too, and creates one Word/PDF statement per selected
+item with a prominent **Download all statements (ZIP)** button. Individual Word
+and PDF downloads are also available. Saved runs retain the exact template and
+all item snapshots for regeneration, and **Edit saved statements** reopens a batch.
+Earlier single-item saved runs remain regenerable.
+
+The supplied SPMC/03/2026 schedule defaults for all 50 items are bundled in
+`catalogues/SPMC_03_2026_compliance.json`, with source hash and PDF page references.
+Entries 2, 3, 4 and the bid-security value are prefilled per item, including split
+deliveries and item 18's air-only requirement. Other tenders do not reuse these
+defaults. Payment defaults to **L/C at Sight**, offer validity and sample inclusion
+to **Yes**, and analysis compliance to **Yes - COA Complies**. Actual bid-security
+submission status/method and supplier shelf life remain editable shared fields.
+The blank form's validity dates (1 February 2027 and 1 March 2027) are editable.
+All form-table entries are centered horizontally and vertically, and signature /
+seal space stays blank. The editable Word template is downloadable on the screen
+and bundled under `assets/Statement of Compliance.docx`. Longer content may expand
+beyond two pages. Word remains available if PDF conversion fails.
 
 The existing source-folder/USB setup remains available through
 **setup-desktop.bat** and **Make USB copy.bat**; see

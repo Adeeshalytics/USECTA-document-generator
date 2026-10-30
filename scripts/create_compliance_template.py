@@ -27,11 +27,11 @@ def create_template():
     section = doc.sections[0]
     section.page_width, section.page_height = Pt(596.52), Pt(842.52)
     section.left_margin, section.right_margin = Pt(66), Pt(32)
-    section.top_margin, section.bottom_margin = Pt(74), Pt(40)
+    section.top_margin, section.bottom_margin = Pt(64), Pt(40)
     section.footer_distance = Pt(18)
     heading = doc.add_paragraph("3.   STATEMENT OF COMPLIANCE", "Title")
     heading.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    heading.paragraph_format.space_after = Pt(22)
+    heading.paragraph_format.space_after = Pt(14)
     heading.paragraph_format.line_spacing = 1
     for border in heading._p.findall(".//" + qn("w:pBdr")):
         border.getparent().remove(border)
@@ -81,7 +81,7 @@ def create_template():
                 margins.append(el)
             cell._tc.get_or_add_tcPr().append(margins)
             p = cell.paragraphs[0]
-            p.alignment = WD_ALIGN_PARAGRAPH.CENTER if i != 1 else WD_ALIGN_PARAGRAPH.LEFT
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
             p.add_run(text).bold = header
         return r
 
@@ -103,7 +103,7 @@ def create_template():
         ("11.", "Shelf life\nAs requested in the schedule of requirement", "shelf_life", 32),
         ("12.", "Country of origin", "origin", 21),
         ("13.", "Validity of Offer\nUp to {{ offer_valid_until }}\n(91 days from the date of closing)", "offer_response", 50),
-        ("14.", "State whether sample is included or not", "sample", 45),
+        ("14.", "State whether sample is included or not", "sample", 35),
     ]
     for num, required, field, height in rows:
         row(t, num, required, "{{ " + field + " }}", height)

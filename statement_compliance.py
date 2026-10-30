@@ -94,4 +94,16 @@ def regenerate_statement(payload):
         template = base64.b64decode(payload["template_base64"], validate=True)
     except (KeyError, ValueError, TypeError) as exc:
         raise ValueError("The saved statement template is missing or invalid.") from exc
+    if "statements" in payload:
+        from compliance_batches import batch_filename
+        statements = payload["statements"]
+        if not isinstance(statements, list) or not 1 <= len(statements) <= 100:
+            raise ValueError("The saved statement batch is invalid.")
+        files = {}
+        for values in statements:
+            name = batch_filename(payload["reference"], payload["supplier_name"], values["item_number"])
+            if name in files:
+                raise ValueError("Two selected items would have the same output filename.")
+            files[name] = next(iter(statement_files(values, template).values()))
+        return files
     return statement_files(payload["values"], template)

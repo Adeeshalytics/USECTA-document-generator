@@ -32,7 +32,7 @@ except (RuntimeError, ValueError, OSError) as exc:
 # Widget values survive switching between screens. Button, uploader, and editor
 # states are deliberately excluded because Streamlit prohibits assigning them.
 for draft_key in list(st.session_state):
-    if draft_key.startswith("compliance_") and draft_key not in {"compliance_generate", "compliance_load_item", "compliance_load_bidder", "compliance_download_template"}:
+    if draft_key in st.session_state.get("_compliance_input_keys", set()):
         st.session_state[draft_key] = st.session_state[draft_key]
     if draft_key in {"tender_reference", "tender_templates", "tender_supplier", "tender_document_date", "tender_effective_date", "quotation_templates", "quotation_number", "quotation_currency", "quotation_date", "quotation_expiry", "edit_tender", "catalog_reference", "edit_supplier", "pdf_tender", "pdf_quotation"} or draft_key.startswith(("selected_items_", "tender_run_", "tender_extra_", "quote_", "catalog_ref_", "catalog_title_", "catalog_date_", "catalog_time_", "catalog_has_validity_", "catalog_validity_", "supplier_", "labels_")) and draft_key != "labels_generate" and draft_key != "labels_load":
         st.session_state[draft_key] = st.session_state[draft_key]
@@ -151,6 +151,9 @@ with st.sidebar:
         if "jobs" in payload or payload.get("workflow") in {"sample_labels", "statement_compliance"}:
             if payload.get("workflow") == "statement_compliance":
                 st.caption("Regenerates the saved statement details and its original form template.")
+                if "draft" in payload:
+                    from statement_compliance_ui import queue_statement_edit
+                    st.button("Edit saved statements", key="history_edit_compliance", on_click=queue_statement_edit, args=(payload,))
             else:
                 st.caption("Regenerates the saved product names and IFB number." if payload.get("workflow") == "sample_labels" else "Regenerates using the saved item and supplier details, even if the catalogue has since changed.")
             if st.button("Regenerate saved run"):
@@ -352,7 +355,7 @@ if page == "Suppliers":
             fields[key] = widget(label + (" *" if key == "supplier_name" else ""), value=current.get(key, ""), key=f"supplier_{editing or 'new'}_{key}")
         if st.form_submit_button("Save supplier"):
             try:
-                store.save_supplier(fields, editing)
+                store.save_supplier(current | fields, editing)
                 st.session_state["supplier_saved"] = True
                 st.rerun()
             except ValueError as exc:
