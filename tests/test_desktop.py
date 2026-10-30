@@ -33,7 +33,8 @@ def test_desktop_ignores_cloud_secrets_and_never_contacts_supabase(tmp_path, mon
                         'ALLOWED_EMAILS': ['owner@example.com']})
     app.run()
     assert not app.exception
-    assert len(app.radio(key='page').options) == 7
+    assert 'Statement of Compliance' in app.radio(key='page').options
+    assert len(app.radio(key='page').options) == 8
     assert len(store.catalog('SPMC/03/2026')) == 50
     assert not any(button.label == 'Sign in' for button in app.button)
     app.radio(key='page').set_value('Suppliers').run()

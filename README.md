@@ -13,6 +13,20 @@ New runs pack separate bordered labels with small gaps onto each sheet. See
 [COMPACT_LABELS_1.0.3.md](COMPACT_LABELS_1.0.3.md) describes the earlier joined layout;
 [SAMPLE_LABELS_1.0.2.md](SAMPLE_LABELS_1.0.2.md) documents the original format.
 
+**Statement of Compliance** is a separate sidebar screen for the supplied SPMC
+20-entry form. Load an item from a tender catalogue and a foreign bidder from
+Suppliers, or enter them manually. Edit offered specifications, quantities,
+delivery, packaging, prices, compliance responses and all three parties' contacts.
+USECTA's local-agent contacts are prefilled. The blank form's offer and security
+validity dates (1 February 2027 and 1 March 2027) are editable; confirm them for
+each tender. No compliance response, price or bid-security submission is assumed.
+Generate Word/PDF downloads or a ZIP, and regenerate the exact saved details and
+template from Saved runs. Partial responses can be downloaded as drafts; the
+signature/seal area stays empty. The editable template is downloadable on this
+screen and is bundled under `assets/Statement of Compliance.docx`. Longer content
+can expand beyond the reference's two pages. PDF uses the existing LibreOffice
+converter; Word remains available if PDF conversion fails.
+
 The existing source-folder/USB setup remains available through
 **setup-desktop.bat** and **Make USB copy.bat**; see
 [LOCAL_DESKTOP.md](LOCAL_DESKTOP.md). It is separate from the installable edition.

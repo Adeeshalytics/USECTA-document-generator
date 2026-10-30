@@ -32,6 +32,8 @@ except (RuntimeError, ValueError, OSError) as exc:
 # Widget values survive switching between screens. Button, uploader, and editor
 # states are deliberately excluded because Streamlit prohibits assigning them.
 for draft_key in list(st.session_state):
+    if draft_key.startswith("compliance_") and draft_key not in {"compliance_generate", "compliance_load_item", "compliance_load_bidder", "compliance_download_template"}:
+        st.session_state[draft_key] = st.session_state[draft_key]
     if draft_key in {"tender_reference", "tender_templates", "tender_supplier", "tender_document_date", "tender_effective_date", "quotation_templates", "quotation_number", "quotation_currency", "quotation_date", "quotation_expiry", "edit_tender", "catalog_reference", "edit_supplier", "pdf_tender", "pdf_quotation"} or draft_key.startswith(("selected_items_", "tender_run_", "tender_extra_", "quote_", "catalog_ref_", "catalog_title_", "catalog_date_", "catalog_time_", "catalog_has_validity_", "catalog_validity_", "supplier_", "labels_")) and draft_key != "labels_generate" and draft_key != "labels_load":
         st.session_state[draft_key] = st.session_state[draft_key]
 COMPANY = {"company_name": "USECTA (Pvt) Ltd", "company_address": "33/5 Boruppa Road, Pallegunnepana, Gunnepana Kandy"}
@@ -129,7 +131,7 @@ with st.sidebar:
             pass
         st.info("USECTA is closing. You can close this browser tab.")
         st.stop()
-    pages = ["Tender documents", "Quotations", "Sample labels", "Tenders & items", "Suppliers", "Templates"]
+    pages = ["Tender documents", "Quotations", "Sample labels", "Statement of Compliance", "Tenders & items", "Suppliers", "Templates"]
     if not cloud_mode:
         pages.append("Backup & sharing")
     page = st.radio("Workspace", pages, key="page")
@@ -146,12 +148,18 @@ with st.sidebar:
         record = by_record[record_id] if cloud_mode else store.record(record_id)
         payload = json.loads(record["payload"])
         st.download_button("Download saved details", json.dumps(payload, indent=2).encode(), file_name=filename(record["name"]) + ".json", mime="application/json")
-        if "jobs" in payload or payload.get("workflow") == "sample_labels":
-            st.caption("Regenerates the saved product names and IFB number." if payload.get("workflow") == "sample_labels" else "Regenerates using the saved item and supplier details, even if the catalogue has since changed.")
+        if "jobs" in payload or payload.get("workflow") in {"sample_labels", "statement_compliance"}:
+            if payload.get("workflow") == "statement_compliance":
+                st.caption("Regenerates the saved statement details and its original form template.")
+            else:
+                st.caption("Regenerates the saved product names and IFB number." if payload.get("workflow") == "sample_labels" else "Regenerates using the saved item and supplier details, even if the catalogue has since changed.")
             if st.button("Regenerate saved run"):
                 st.session_state.pop("history_output", None)
                 try:
-                    if payload.get("workflow") == "sample_labels":
+                    if payload.get("workflow") == "statement_compliance":
+                        from statement_compliance import regenerate_statement
+                        files = regenerate_statement(payload)
+                    elif payload.get("workflow") == "sample_labels":
                         from sample_labels import label_files
                         files = label_files(payload["ifb_number"], payload["product_names"], payload["layout_version"])
                     else:
@@ -402,6 +410,10 @@ if page == "Backup & sharing":
 if page == "Sample labels":
     from sample_labels_ui import render_sample_labels
     render_sample_labels(store, cloud_mode, download_files)
+
+if page == "Statement of Compliance":
+    from statement_compliance_ui import render_statement_compliance
+    render_statement_compliance(store, cloud_mode, download_files)
 
 if page != "Quotations":
     st.session_state["_quote_editor_visible"] = False

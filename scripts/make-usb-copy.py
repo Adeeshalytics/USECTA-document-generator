@@ -16,6 +16,7 @@ sys.path.insert(0, str(ROOT))
 FILES = ['app.py', 'documents.py', 'workflows.py', 'cloud_access.py', 'cloud_store.py', 'desktop.py',
          'desktop_paths.py', 'backup_ui.py', 'workspace_archive.py',
          'sample_labels.py', 'sample_labels_ui.py',
+         'statement_compliance.py', 'statement_compliance_ui.py',
          'requirements.txt', 'LOCAL_DESKTOP.md', 'setup-desktop.bat', 'Open USECTA.bat',
          'Stop USECTA.bat', 'Create desktop shortcuts.bat', 'Make USB copy.bat']
 SCRIPTS = ['check-desktop.py', 'create-desktop-shortcuts.ps1', 'setup-desktop.ps1', 'make-usb-copy.py']

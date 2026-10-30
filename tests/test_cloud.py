@@ -132,7 +132,8 @@ def test_company_login_expiry_and_logout(monkeypatch, tmp_path):
     app.text_input[1].set_value('test-password')
     app.button[0].click().run()
     assert not app.exception
-    assert len(app.radio(key='page').options) == 6
+    assert 'Statement of Compliance' in app.radio(key='page').options
+    assert len(app.radio(key='page').options) == 7
     assert len(cloud.catalog('SPMC/03/2026')) == 50
     assert set(app.session_state['company_login']) == {'email', 'expires_at'}
     next(button for button in app.button if button.label == 'Sign out').click().run()
