@@ -130,6 +130,28 @@ def test_envelopes_do_not_require_unknown_validity_or_supplier(workspace):
     assert not app.exception and len(app.session_state["output_tender"]["files"]) == 1
 
 
+def test_saved_october_closing_is_corrected_in_caption_editor_and_new_envelope(workspace):
+    import io
+    from docx import Document
+    details = workspace.tenders()[REFERENCE]
+    workspace.save_tender(REFERENCE, details | {"closing_date": "2026-10-30"})
+    app = application()
+    app.selectbox(key="tender_reference").set_value(REFERENCE).run()
+    assert any("Closing: 2026-11-03" in caption.value for caption in app.caption)
+    envelope = next(t for t in workspace.templates() if t["name"] == "Envelop covers")
+    app.multiselect(key="tender_templates").set_value([envelope["id"]]).run()
+    app.button(key="generate_tender").click().run()
+    assert not app.exception and not app.error
+    files = app.session_state["output_tender"]["files"]
+    word = next(content for name, content in files.items() if name.endswith(".docx"))
+    doc = Document(io.BytesIO(word))
+    assert "03.11.2026" in doc.tables[0].cell(0, 0).text
+    assert "30.10.2026" not in doc.tables[0].cell(0, 0).text
+    app.radio(key="page").set_value("Tenders & items").run()
+    app.selectbox(key="edit_tender").set_value(REFERENCE).run()
+    assert app.date_input(key=f"catalog_date_{REFERENCE}").value == date(2026, 11, 3)
+
+
 def test_icon_has_all_windows_sizes_and_packaging_uses_supplied_artwork():
     with Image.open(ROOT / "assets/usecta-icon.ico") as icon:
         assert icon.ico.sizes() == {(size, size) for size in (16, 24, 32, 48, 64, 128, 256)}

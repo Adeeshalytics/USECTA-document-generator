@@ -71,6 +71,18 @@ def test_cloud_survives_empty_cache_and_preserves_template(tmp_path):
     assert result.paragraphs[0].runs[0].bold
 
 
+def test_cloud_saved_closing_date_correction_survives_empty_cache(tmp_path):
+    from workflows import prepare_workspace
+    server = FakeServer()
+    store = SupabaseStore(server, cache_root=tmp_path / 'first')
+    before = {'closing_date': '2026-10-30', 'closing_time': '10:00',
+              'bid_valid_until': '2027-02-01', 'tender_title': 'Saved title'}
+    store.save_tender('SPMC/03/2026', before)
+    prepare_workspace(store)
+    restarted = SupabaseStore(server, cache_root=tmp_path / 'empty-cache')
+    assert restarted.tenders()['SPMC/03/2026'] == before | {'closing_date': '2026-11-03'}
+
+
 def test_uploaded_template_recovers_metadata_failure(tmp_path):
     server = FakeServer()
     store = SupabaseStore(server, cache_root=tmp_path)

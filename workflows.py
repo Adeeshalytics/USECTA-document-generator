@@ -328,6 +328,11 @@ def prepare_workspace(store, project_root=None):
             else:
                 store.save_tender(reference, details)
                 store.save_catalog(reference, rows)
+    # Correct the saved date explicitly identified by the user. Seeding alone
+    # does not update existing local/cloud workspaces; preserve their other data.
+    current = store.tenders().get("SPMC/03/2026", {})
+    if current.get("closing_date") == "2026-10-30":
+        store.save_tender("SPMC/03/2026", current | {"closing_date": "2026-11-03"})
     folder = root / "company_templates"
     manifest = folder / "manifest.json"
     if manifest.exists():

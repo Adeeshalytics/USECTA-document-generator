@@ -179,6 +179,22 @@ def test_old_database_migration_preserves_records(tmp_path):
     assert store.templates()[0]["scope"] == "batch"
 
 
+def test_saved_closing_date_correction_preserves_other_data_and_tenders(tmp_path):
+    from workflows import prepare_workspace
+    store = Store(tmp_path)
+    original = DETAILS | {"closing_date": "2026-10-30", "custom_note": "Keep this"}
+    store.save_tender("SPMC/03/2026", original)
+    store.save_tender("OTHER/2026", original)
+    rows = [{"item_number": "15", "description": "Edited by user", "document_fee": "100"}]
+    store.save_catalog("SPMC/03/2026", rows)
+    prepare_workspace(store)
+    assert store.tenders()["SPMC/03/2026"] == original | {"closing_date": "2026-11-03"}
+    assert store.tenders()["OTHER/2026"] == original
+    assert store.catalog("SPMC/03/2026")[0]["description"] == "Edited by user"
+    prepare_workspace(store)
+    assert store.tenders()["SPMC/03/2026"] == original | {"closing_date": "2026-11-03"}
+
+
 def test_preloaded_catalogue_preserves_user_edits(tmp_path):
     from workflows import prepare_workspace
     store = Store(tmp_path)
