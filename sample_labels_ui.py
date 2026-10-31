@@ -13,7 +13,7 @@ from sample_labels import LAYOUT_VERSION, label_files, validate_labels
 
 def render_sample_labels(store, cloud_mode, download_files):
     st.subheader("Sample labels")
-    st.caption("Two identical labels per product on A4 paper. Boxes are at least 35 mm tall, with centered text and small gaps for cutting. Additional products continue onto new pages.")
+    st.caption("Two identical labels per product on A4 paper. Boxes are at least 60 mm tall, with centered text and small gaps for cutting. Additional products continue onto new pages.")
     st.info("Print the PDF at Actual size / 100% on A4 paper (210 × 297 mm). Longer names can make boxes taller. This layout is for plain A4 sheets.")
     tenders = store.tenders()
     reference = st.selectbox("Load names from a tender (optional)", [None] + list(tenders),
@@ -35,7 +35,7 @@ def render_sample_labels(store, cloud_mode, download_files):
     try:
         ifb_number, names = validate_labels(ifb_number, names)
         valid = True
-        st.caption(f"{len(names)} products · {len(names) * 2} labels. Boxes are at least 35 mm tall and flow automatically onto additional A4 pages.")
+        st.caption(f"{len(names)} products · {len(names) * 2} labels. Boxes are at least 60 mm tall and flow automatically onto additional A4 pages.")
     except ValueError as error:
         if ifb_number or names_text:
             st.warning(str(error))
