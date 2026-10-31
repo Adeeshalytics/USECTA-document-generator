@@ -1,4 +1,4 @@
-"""Create/validate isolated specimens for compact label print-layout QA."""
+"""Create/validate isolated specimens for the current A4 label print layout."""
 import argparse
 import hashlib
 import json
@@ -7,9 +7,9 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from sample_labels import labels_document
+from sample_labels import LABEL_MIN_HEIGHT_MM, labels_document
 
-OUTPUT = ROOT / ".tools/tmp/labels-separated-qa"
+OUTPUT = ROOT / ".tools/tmp/labels-a4-qa"
 CASES = {
     "short-16": ("SPMC/03/2026", [f"Product {index:03d} Calcium Carbonate BP" for index in range(1, 17)]),
     "mixed-20": ("SPMC/03/2026", [f"Product {index:03d} " +
@@ -41,15 +41,15 @@ def create():
 
 def validate_borders(page, expected_pairs):
     """Require independent closed rectangles, not shared table grid lines."""
-    horizontal = [edge for edge in page.edges if edge["orientation"] == "h" and 270 < edge["x1"] - edge["x0"] < 280]
+    horizontal = [edge for edge in page.edges if edge["orientation"] == "h" and 266 < edge["x1"] - edge["x0"] < 269]
     vertical = [edge for edge in page.edges if edge["orientation"] == "v"]
     assert len(horizontal) == len(vertical) == expected_pairs * 4, "Each label needs four separate border segments"
     for right_column in (False, True):
-        borders = sorted([edge for edge in horizontal if (edge["x0"] > 305) == right_column], key=lambda edge: edge["top"])
+        borders = sorted([edge for edge in horizontal if (edge["x0"] > 300) == right_column], key=lambda edge: edge["top"])
         assert len(borders) == expected_pairs * 2
         previous_bottom = None
         for top, bottom in zip(borders[::2], borders[1::2]):
-            assert bottom["top"] - top["top"] > 25, "Collapsed label box"
+            assert bottom["top"] - top["top"] >= LABEL_MIN_HEIGHT_MM * 72 / 25.4 - 1, "Label shorter than 35 mm"
             if previous_bottom is not None:
                 assert top["top"] - previous_bottom >= 4.8, "Missing blank gap between labels"
             previous_bottom = bottom["top"]
@@ -68,9 +68,10 @@ def validate():
             for index in range(1, len(names) + 1):
                 assert text.count(f"Product {index:03d}") == 2, (stem, index, "Missing/duplicate labels")
             for page, words in zip(document.pages, words_by_page):
+                assert abs(page.width - 210 * 72 / 25.4) < 0.1 and abs(page.height - 297 * 72 / 25.4) < 0.1, "Page must be A4"
                 assert words, (stem, "Blank page")
-                assert all(23 <= word["x0"] < word["x1"] <= 589 and
-                           23 <= word["top"] < word["bottom"] <= 769 for word in words), (stem, "Text outside printable area")
+                assert all(23 <= word["x0"] < word["x1"] <= page.width - 23 and
+                           23 <= word["top"] < word["bottom"] <= page.height - 23 for word in words), (stem, "Text outside printable area")
                 # Every pair starts and ends on the same page.
                 page_text = page.extract_text() or ""
                 assert page_text.count("IFB NO :") == sum(page_text.count(f"Product {index:03d}") for index in range(1, len(names) + 1)), (stem, "IFB separated from product")
@@ -79,7 +80,7 @@ def validate():
                 pairs = sum(f"Product {index:03d}" in page_text for index in range(1, len(names) + 1))
                 validate_borders(page, pairs)
             if stem == "short-16":
-                assert len(document.pages) == 1, "16 short products must fit on one sheet"
+                assert len(document.pages) > 1, "Tall labels must continue onto additional sheets"
             report[stem] = {"pages": len(document.pages), "products": len(names), "labels": len(names) * 2,
                            "separate_four_border_boxes": "passed",
                            "pairs_per_page": [sum(f"Product {index:03d}" in (page.extract_text() or "") for index in range(1, len(names) + 1)) for page in document.pages]}

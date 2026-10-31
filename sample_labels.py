@@ -8,10 +8,11 @@ from docx.enum.table import WD_ROW_HEIGHT_RULE, WD_TABLE_ALIGNMENT, WD_CELL_VERT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from docx.shared import Pt
+from docx.shared import Mm, Pt
 
-LAYOUT_VERSION = 3
+LAYOUT_VERSION = 4
 LABEL_GAP_POINTS = 5
+LABEL_MIN_HEIGHT_MM = 35
 
 
 def validate_labels(ifb_number, product_names):
@@ -137,14 +138,17 @@ def _stable_document(doc):
 def labels_document(ifb_number, product_names, layout_version=LAYOUT_VERSION):
     if layout_version == 1:
         return _reference_labels_document(ifb_number, product_names)
-    if layout_version not in (2, LAYOUT_VERSION):
+    if layout_version not in (2, 3, LAYOUT_VERSION):
         raise ValueError("This saved label layout is not supported by this app version.")
     ifb_number, product_names = validate_labels(ifb_number, product_names)
     doc = Document()
     doc.core_properties.title = "Sample labels"
     doc.core_properties.author = "USECTA (Pvt) Ltd"
     section = doc.sections[0]
-    section.page_width, section.page_height = Pt(612), Pt(792)
+    if layout_version >= 4:
+        section.page_width, section.page_height = Mm(210), Mm(297)
+    else:
+        section.page_width, section.page_height = Pt(612), Pt(792)
     section.top_margin = section.bottom_margin = Pt(24)
     section.left_margin = section.right_margin = Pt(24)
     section.header_distance = section.footer_distance = Pt(0)
@@ -156,16 +160,17 @@ def labels_document(ifb_number, product_names, layout_version=LAYOUT_VERSION):
     style.paragraph_format.space_before = Pt(0)
     style.paragraph_format.space_after = Pt(0)
     style.paragraph_format.line_spacing = 1.0
-    # Layout 3 uses separate one-row tables with small blank paragraphs between
+    # Layouts 3+ use separate one-row tables with small blank paragraphs between
     # them. A continuous table can draw unwanted border rules at page breaks.
     table = doc.add_table(rows=0, cols=3)
     table.autofit = False
     table.alignment = WD_TABLE_ALIGNMENT.LEFT
-    widths = [276, 12, 276]
+    label_width = (section.page_width.pt - 48 - 12) / 2 if layout_version >= 4 else 276
+    widths = [label_width, 12, label_width]
     for column, width in zip(table.columns, widths):
         column.width = Pt(width)
     for index, name in enumerate(product_names):
-        if index and layout_version == 3:
+        if index and layout_version >= 3:
             _spacer(doc, LABEL_GAP_POINTS)
             doc.paragraphs[-1].paragraph_format.keep_with_next = True
             table = doc.add_table(rows=0, cols=3)
@@ -174,6 +179,10 @@ def labels_document(ifb_number, product_names, layout_version=LAYOUT_VERSION):
             for column, width in zip(table.columns, widths):
                 column.width = Pt(width)
         row = table.add_row()
+        if layout_version >= 4:
+            # A generous minimum; longer names may expand without clipping.
+            row.height = Mm(LABEL_MIN_HEIGHT_MM)
+            row.height_rule = WD_ROW_HEIGHT_RULE.AT_LEAST
         row._tr.get_or_add_trPr().append(OxmlElement("w:cantSplit"))
         for column_index, cell in enumerate(row.cells):
             cell.width = Pt(widths[column_index])

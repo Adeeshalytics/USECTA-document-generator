@@ -8,26 +8,31 @@ from streamlit.testing.v1 import AppTest
 
 import documents
 from documents import Store
-from sample_labels import LABEL_GAP_POINTS, labels_document, label_files, validate_labels
+from sample_labels import LABEL_GAP_POINTS, LABEL_MIN_HEIGHT_MM, LAYOUT_VERSION, labels_document, label_files, validate_labels
+from docx.enum.table import WD_ROW_HEIGHT_RULE, WD_CELL_VERTICAL_ALIGNMENT
 from docx.oxml.ns import qn
 from workflows import prepare_workspace
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_two_editable_copies_per_product_and_letter_page():
+def test_two_editable_copies_per_product_and_tall_a4_boxes():
     names = ["Mefanamic Acid BP 2024 / BP 2025", "Hypromellose 2910 USP 47 / USP 48",
              "Benzhexol Hydrochloride BP 2024 / BP 2025 (Trihexyphenidyl Hydrochloride BP 2024 / BP 2025)"]
     doc = Document(io.BytesIO(labels_document("SPMC/02/2026", names)))
     assert len(doc.tables) == 3
-    assert doc.sections[0].page_width.pt == 612 and doc.sections[0].page_height.pt == 792
+    assert doc.sections[0].page_width.mm == pytest.approx(210, abs=0.02)
+    assert doc.sections[0].page_height.mm == pytest.approx(297, abs=0.02)
+    assert sum(column.width.pt for column in doc.tables[0].columns) <= doc.sections[0].page_width.pt - 48 + 0.1
     for table, name in zip(doc.tables, names):
         row = table.rows[0]
         assert row.cells[0].text == row.cells[2].text
         assert name in row.cells[0].text
         assert "IFB NO : SPMC/02/2026" in row.cells[0].text
         assert row.cells[1].text == ""
-        assert row.height is None, "Height must follow text, not a fixed label size"
+        assert row.height.mm == pytest.approx(LABEL_MIN_HEIGHT_MM, abs=0.02)
+        assert row.height_rule == WD_ROW_HEIGHT_RULE.AT_LEAST
+        assert all(cell.vertical_alignment == WD_CELL_VERTICAL_ALIGNMENT.CENTER for cell in row.cells)
 
 
 def test_many_labels_flow_as_separate_boxes_with_small_gaps():
@@ -40,7 +45,7 @@ def test_many_labels_flow_as_separate_boxes_with_small_gaps():
     for table, name in zip(doc.tables, names):
         assert len(table.rows) == 1
         row = table.rows[0]
-        assert row.height is None
+        assert row.height_rule == WD_ROW_HEIGHT_RULE.AT_LEAST
         assert row.cells[0].text.count(name) == row.cells[2].text.count(name) == 1
         for cell in (row.cells[0], row.cells[2]):
             borders = cell._tc.get_or_add_tcPr().find(qn("w:tcBorders"))
@@ -60,6 +65,16 @@ def test_previous_joined_layout_stays_available_for_saved_runs():
     assert all(row.height is None for row in doc.tables[0].rows)
     assert original == labels_document("TEST-IFB", names, layout_version=2)
     assert original != labels_document("TEST-IFB", names)
+
+
+def test_previous_compact_layout_stays_available_for_saved_runs():
+    names = ["First product", "Second product"]
+    old = labels_document("TEST-IFB", names, layout_version=3)
+    doc = Document(io.BytesIO(old))
+    assert doc.sections[0].page_width.pt == 612 and doc.sections[0].page_height.pt == 792
+    assert len(doc.tables) == 2 and all(table.rows[0].height is None for table in doc.tables)
+    assert old == labels_document("TEST-IFB", names, layout_version=3)
+    assert old != labels_document("TEST-IFB", names)
 
 
 def test_saved_original_layout_remains_supported_and_deterministic():
@@ -111,6 +126,8 @@ def test_manual_generation_snapshot_regeneration_and_stale_downloads(workspace):
     original = app.session_state["labels_output"]["files"]
     payload = json.loads(workspace.records()[0]["payload"])
     assert payload["product_names"] == ["First product", "Second product"]
+    assert payload["layout_version"] == LAYOUT_VERSION == 4
+    assert any("A4 paper" in info.value for info in app.info)
     assert list((workspace.root / "exports").rglob("*.docx"))
     app.text_area(key="labels_names").set_value("Changed product").run()
     assert not any("Sample labels generated" in element.value for element in app.success)

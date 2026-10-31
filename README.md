@@ -8,8 +8,12 @@ The source/cloud workflows below remain available for development.
 
 Sample labels can be generated from the new sidebar screen with editable product
 names and IFB number, two bordered copies per product, and Word/PDF downloads.
-New runs pack separate bordered labels with small gaps onto each sheet. See
-[SEPARATE_LABELS_1.0.4.md](SEPARATE_LABELS_1.0.4.md) for the current layout;
+New runs use A4 paper (210 × 297 mm) with separate bordered boxes at least 35 mm
+tall, centered text, and small gaps for cutting. Longer names can expand the
+boxes; additional products continue automatically onto new pages. Generate a
+new run to apply this layout; saved runs retain their original layout. Print at
+Actual size / 100% on A4 paper. See
+[SEPARATE_LABELS_1.0.4.md](SEPARATE_LABELS_1.0.4.md) for the earlier compact layout;
 [COMPACT_LABELS_1.0.3.md](COMPACT_LABELS_1.0.3.md) describes the earlier joined layout;
 [SAMPLE_LABELS_1.0.2.md](SAMPLE_LABELS_1.0.2.md) documents the original format.
 
