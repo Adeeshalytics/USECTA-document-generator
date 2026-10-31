@@ -205,7 +205,7 @@ def test_cloud_sample_labels_save_and_regenerate_without_local_exports(monkeypat
     restarted = SupabaseStore(server, cache_root=tmp_path / 'empty-cache')
     record = restarted.records()[0]
     payload = json.loads(record['payload'])
-    assert payload['layout_version'] == LAYOUT_VERSION == 5
+    assert payload['layout_version'] == LAYOUT_VERSION == 6
     assert payload['ifb_number'] == 'TEST-CLOUD-IFB'
     assert payload['product_names'] == ['Test product A', 'Test product B']
     assert 'output_directory' not in payload

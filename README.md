@@ -8,7 +8,7 @@ The source/cloud workflows below remain available for development.
 
 Sample labels can be generated from the new sidebar screen with editable product
 names and IFB number, two bordered copies per product, and Word/PDF downloads.
-New runs use A4 paper (210 × 297 mm) with separate bordered boxes at least 60 mm
+New runs use A4 paper (210 × 297 mm) with separate bordered boxes at least 50 mm
 tall, centered text, and small gaps for cutting. Longer names can expand the
 boxes; additional products continue automatically onto new pages. Generate a
 new run to apply this layout; saved runs retain their original layout. Print at

@@ -10,9 +10,9 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Mm, Pt
 
-LAYOUT_VERSION = 5
+LAYOUT_VERSION = 6
 LABEL_GAP_POINTS = 5
-LABEL_MIN_HEIGHT_MM = 60
+LABEL_MIN_HEIGHT_MM = 50
 
 
 def validate_labels(ifb_number, product_names):
@@ -138,7 +138,7 @@ def _stable_document(doc):
 def labels_document(ifb_number, product_names, layout_version=LAYOUT_VERSION):
     if layout_version == 1:
         return _reference_labels_document(ifb_number, product_names)
-    if layout_version not in (2, 3, 4, LAYOUT_VERSION):
+    if layout_version not in (2, 3, 4, 5, LAYOUT_VERSION):
         raise ValueError("This saved label layout is not supported by this app version.")
     ifb_number, product_names = validate_labels(ifb_number, product_names)
     doc = Document()
@@ -181,7 +181,7 @@ def labels_document(ifb_number, product_names, layout_version=LAYOUT_VERSION):
         row = table.add_row()
         if layout_version >= 4:
             # A generous minimum; longer names may expand without clipping.
-            row.height = Mm(35 if layout_version == 4 else LABEL_MIN_HEIGHT_MM)
+            row.height = Mm({4: 35, 5: 60}.get(layout_version, LABEL_MIN_HEIGHT_MM))
             row.height_rule = WD_ROW_HEIGHT_RULE.AT_LEAST
         row._tr.get_or_add_trPr().append(OxmlElement("w:cantSplit"))
         for column_index, cell in enumerate(row.cells):

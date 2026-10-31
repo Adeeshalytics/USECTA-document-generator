@@ -23,7 +23,7 @@ def test_two_editable_copies_per_product_and_tall_a4_boxes():
     assert len(doc.tables) == 3
     assert doc.sections[0].page_width.mm == pytest.approx(210, abs=0.02)
     assert doc.sections[0].page_height.mm == pytest.approx(297, abs=0.02)
-    assert LABEL_MIN_HEIGHT_MM == 60
+    assert LABEL_MIN_HEIGHT_MM == 50
     assert sum(column.width.pt for column in doc.tables[0].columns) <= doc.sections[0].page_width.pt - 48 + 0.1
     for table, name in zip(doc.tables, names):
         row = table.rows[0]
@@ -78,11 +78,12 @@ def test_previous_compact_layout_stays_available_for_saved_runs():
     assert old != labels_document("TEST-IFB", names)
 
 
-def test_previous_35mm_a4_layout_stays_available_for_saved_runs():
-    old = labels_document("TEST-IFB", ["Product"], layout_version=4)
+@pytest.mark.parametrize("version,height", [(4, 35), (5, 60)])
+def test_previous_a4_layout_stays_available_for_saved_runs(version, height):
+    old = labels_document("TEST-IFB", ["Product"], layout_version=version)
     doc = Document(io.BytesIO(old))
     assert doc.sections[0].page_height.mm == pytest.approx(297, abs=0.02)
-    assert doc.tables[0].rows[0].height.mm == pytest.approx(35, abs=0.02)
+    assert doc.tables[0].rows[0].height.mm == pytest.approx(height, abs=0.02)
     assert old != labels_document("TEST-IFB", ["Product"])
 
 
@@ -135,7 +136,7 @@ def test_manual_generation_snapshot_regeneration_and_stale_downloads(workspace):
     original = app.session_state["labels_output"]["files"]
     payload = json.loads(workspace.records()[0]["payload"])
     assert payload["product_names"] == ["First product", "Second product"]
-    assert payload["layout_version"] == LAYOUT_VERSION == 5
+    assert payload["layout_version"] == LAYOUT_VERSION == 6
     assert any("A4 paper" in info.value for info in app.info)
     assert list((workspace.root / "exports").rglob("*.docx"))
     app.text_area(key="labels_names").set_value("Changed product").run()

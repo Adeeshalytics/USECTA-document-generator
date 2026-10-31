@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from sample_labels import LABEL_MIN_HEIGHT_MM, labels_document
 
-OUTPUT = ROOT / ".tools/tmp/labels-a4-60mm-qa"
+OUTPUT = ROOT / f".tools/tmp/labels-a4-{LABEL_MIN_HEIGHT_MM}mm-qa"
 CASES = {
     "short-16": ("SPMC/03/2026", [f"Product {index:03d} Calcium Carbonate BP" for index in range(1, 17)]),
     "mixed-20": ("SPMC/03/2026", [f"Product {index:03d} " +
@@ -49,7 +49,7 @@ def validate_borders(page, expected_pairs):
         assert len(borders) == expected_pairs * 2
         previous_bottom = None
         for top, bottom in zip(borders[::2], borders[1::2]):
-            assert bottom["top"] - top["top"] >= LABEL_MIN_HEIGHT_MM * 72 / 25.4 - 1, "Label shorter than 60 mm"
+            assert bottom["top"] - top["top"] >= LABEL_MIN_HEIGHT_MM * 72 / 25.4 - 1, f"Label shorter than {LABEL_MIN_HEIGHT_MM} mm"
             if previous_bottom is not None:
                 assert top["top"] - previous_bottom >= 4.8, "Missing blank gap between labels"
             previous_bottom = bottom["top"]
