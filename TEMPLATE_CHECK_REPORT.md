@@ -2,7 +2,7 @@
 
 All six templates parsed and rendered after the corrections listed below. Originals remain preserved under data/review/originals in the cloud workspace. The downloadable company_templates folder contains the corrected copies.
 
-## Corrections (text only)
+## Original text corrections
 
 ### Bid Document.docx
 
@@ -26,6 +26,12 @@ All six templates parsed and rendered after the corrections listed below. Origin
 
 - '10.00 a.m.' → '{{ closing_time }}' (3 occurrence(s)).
 - 'PROCUREMENT OF PHARMACEUTICAL RAW MATERIALS' → '{{ tender_title }}' (2 occurrence(s)).
+- The four boxes now use a two-by-two arrangement on one A4 page with centered
+  text and gaps for cutting. The original/copy labels, IFB/date box, recipient,
+  sender and opening restriction remain present. Render checks with the current
+  tender and longer title/reference values each produced one clean A4 page.
+- New tender runs offer this version automatically. The previous built-in stays
+  stored for historical runs and is omitted from the new-run template selector.
 
 ### Authorised Personnal.docx
 

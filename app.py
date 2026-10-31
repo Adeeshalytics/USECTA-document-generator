@@ -12,7 +12,7 @@ import streamlit as st
 from documents import FIELDS, filename, make_zip, normalize_word, pdf_available, template_variables, convert_pdfs
 from desktop_paths import VERSION, asset_root, offline_mode
 from workflows import (QUOTE_COMPUTED, SUPPLIER_FIELDS, TENDER_COMPUTED, choose_items,
-                       create_quotation_template, generate_files, import_catalog, long_date,
+                       create_quotation_template, current_tender_templates, generate_files, import_catalog, long_date,
                        prepare_workspace, quotation_context, quotation_jobs, tender_context, tender_jobs)
 
 APP_ICON = asset_root() / "assets" / "usecta-icon.png"
@@ -195,7 +195,7 @@ with st.sidebar:
 if page == "Tender documents":
     tenders = store.tenders()
     reference = st.selectbox("Tender reference", [None] + list(tenders), format_func=lambda x: x or "Select a tender", key="tender_reference")
-    available = [t for t in store.templates() if t["workflow"] == "tender"]
+    available = current_tender_templates(store)
     by_template = {t["id"]: t for t in available}
     selected_ids = st.multiselect("Documents to create", list(by_template), format_func=lambda k: by_template[k]["name"], key="tender_templates")
     selected_templates = [by_template[k] for k in selected_ids]

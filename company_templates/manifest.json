@@ -22,7 +22,8 @@
   {
     "filename": "Envelop covers.docx",
     "name": "Envelop covers",
-    "scope": "tender"
+    "scope": "tender",
+    "supersedes": ["usecta-2277f22d37028e6836f2"]
   },
   {
     "filename": "Authorised Personnal.docx",

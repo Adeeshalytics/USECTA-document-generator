@@ -83,6 +83,24 @@ def test_uploaded_template_recovers_metadata_failure(tmp_path):
     assert store.templates()[0]['name'] == 'Recovered'
 
 
+def test_cloud_envelope_upgrade_survives_restart_and_keeps_previous_version(tmp_path):
+    from workflows import current_tender_templates, prepare_workspace
+    server = FakeServer()
+    store = SupabaseStore(server, cache_root=tmp_path / 'first')
+    previous = 'usecta-2277f22d37028e6836f2'
+    stream = io.BytesIO()
+    Document().save(stream)
+    store.add_template('Envelop covers', stream.getvalue(), key=previous, workflow='tender', scope='tender')
+    prepare_workspace(store)
+    restarted = SupabaseStore(server, cache_root=tmp_path / 'empty-cache')
+    active, = [t for t in current_tender_templates(restarted) if t['name'] == 'Envelop covers']
+    assert active['id'] != previous
+    doc = Document(restarted.template_path(active))
+    assert len(doc.tables) == 1 and len(doc.tables[0].rows) == 3
+    old = next(t for t in restarted.templates() if t['id'] == previous)
+    assert restarted.template_path(old).read_bytes() == stream.getvalue()
+
+
 def test_login_blocks_private_store_and_disallowed_users(monkeypatch):
     calls = []
     def request(self, method, path, payload=None, **kwargs):

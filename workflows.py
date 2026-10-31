@@ -293,6 +293,26 @@ def create_quotation_template(store: Store):
     store.add_template("USECTA quotation (starter)", output.getvalue(), required, key="usecta-quotation-starter", workflow="quotation")
 
 
+def current_tender_templates(store, project_root=None):
+    """Offer current built-ins while preserving earlier versions for saved runs."""
+    templates = [t for t in store.templates() if t["workflow"] == "tender"]
+    known = {t["id"] for t in templates}
+    folder = (Path(project_root) if project_root else asset_root()) / "company_templates"
+    manifest = folder / "manifest.json"
+    superseded = set()
+    if manifest.exists():
+        for entry in json.loads(manifest.read_text()):
+            if not entry.get("supersedes"):
+                continue
+            path = folder / entry["filename"]
+            if path.resolve().parent != folder.resolve() or path.suffix.lower() != ".docx":
+                raise ValueError("Company template manifest contains an invalid file path.")
+            key = "usecta-" + hashlib.sha256(path.read_bytes()).hexdigest()[:20]
+            if key in known:
+                superseded.update(entry["supersedes"])
+    return [t for t in templates if t["id"] not in superseded]
+
+
 def prepare_workspace(store, project_root=None):
     """Install supplied assets once; never replace user-edited catalogues or templates."""
     root = Path(project_root) if project_root else asset_root()
