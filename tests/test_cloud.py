@@ -83,11 +83,11 @@ def test_uploaded_template_recovers_metadata_failure(tmp_path):
     assert store.templates()[0]['name'] == 'Recovered'
 
 
-def test_cloud_envelope_upgrade_survives_restart_and_keeps_previous_version(tmp_path):
+@pytest.mark.parametrize('previous', ['usecta-2277f22d37028e6836f2', 'usecta-1538cc8163de7a8991a6'])
+def test_cloud_envelope_upgrade_survives_restart_and_keeps_previous_version(tmp_path, previous):
     from workflows import current_tender_templates, prepare_workspace
     server = FakeServer()
     store = SupabaseStore(server, cache_root=tmp_path / 'first')
-    previous = 'usecta-2277f22d37028e6836f2'
     stream = io.BytesIO()
     Document().save(stream)
     store.add_template('Envelop covers', stream.getvalue(), key=previous, workflow='tender', scope='tender')
@@ -97,6 +97,8 @@ def test_cloud_envelope_upgrade_survives_restart_and_keeps_previous_version(tmp_
     assert active['id'] != previous
     doc = Document(restarted.template_path(active))
     assert len(doc.tables) == 1 and len(doc.tables[0].rows) == 3
+    assert doc.sections[0].page_width.mm > doc.sections[0].page_height.mm
+    assert len(doc.tables[0].cell(2, 2).tables) == 1
     old = next(t for t in restarted.templates() if t['id'] == previous)
     assert restarted.template_path(old).read_bytes() == stream.getvalue()
 
