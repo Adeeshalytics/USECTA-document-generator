@@ -32,7 +32,7 @@ except (RuntimeError, ValueError, OSError) as exc:
 # Widget values survive switching between screens. Button, uploader, and editor
 # states are deliberately excluded because Streamlit prohibits assigning them.
 for draft_key in list(st.session_state):
-    if draft_key in st.session_state.get("_compliance_input_keys", set()):
+    if draft_key in st.session_state.get("_compliance_input_keys", set()) | st.session_state.get("_sample_submission_input_keys", set()):
         st.session_state[draft_key] = st.session_state[draft_key]
     if draft_key in {"tender_reference", "tender_templates", "tender_supplier", "tender_document_date", "tender_effective_date", "quotation_templates", "quotation_number", "quotation_currency", "quotation_date", "quotation_expiry", "edit_tender", "catalog_reference", "edit_supplier", "pdf_tender", "pdf_quotation"} or draft_key.startswith(("selected_items_", "tender_run_", "tender_extra_", "quote_", "catalog_ref_", "catalog_title_", "catalog_date_", "catalog_time_", "catalog_has_validity_", "catalog_validity_", "supplier_", "labels_")) and draft_key != "labels_generate" and draft_key != "labels_load":
         st.session_state[draft_key] = st.session_state[draft_key]
@@ -131,7 +131,7 @@ with st.sidebar:
             pass
         st.info("USECTA is closing. You can close this browser tab.")
         st.stop()
-    pages = ["Tender documents", "Quotations", "Sample labels", "Statement of Compliance", "Tenders & items", "Suppliers", "Templates"]
+    pages = ["Tender documents", "Quotations", "Sample labels", "Sample submission", "Statement of Compliance", "Tenders & items", "Suppliers", "Templates"]
     if not cloud_mode:
         pages.append("Backup & sharing")
     page = st.radio("Workspace", pages, key="page")
@@ -148,8 +148,12 @@ with st.sidebar:
         record = by_record[record_id] if cloud_mode else store.record(record_id)
         payload = json.loads(record["payload"])
         st.download_button("Download saved details", json.dumps(payload, indent=2).encode(), file_name=filename(record["name"]) + ".json", mime="application/json")
-        if "jobs" in payload or payload.get("workflow") in {"sample_labels", "statement_compliance"}:
-            if payload.get("workflow") == "statement_compliance":
+        if "jobs" in payload or payload.get("workflow") in {"sample_labels", "statement_compliance", "sample_submission"}:
+            if payload.get("workflow") == "sample_submission":
+                from sample_submission_ui import queue_saved_letter
+                st.caption("Regenerates the saved sample list, letter details and original template.")
+                st.button("Edit saved sample letter", key="history_edit_sample_letter", on_click=queue_saved_letter, args=(payload,))
+            elif payload.get("workflow") == "statement_compliance":
                 st.caption("Regenerates the saved statement details and its original form template.")
                 if "draft" in payload:
                     from statement_compliance_ui import queue_statement_edit
@@ -159,7 +163,10 @@ with st.sidebar:
             if st.button("Regenerate saved run"):
                 st.session_state.pop("history_output", None)
                 try:
-                    if payload.get("workflow") == "statement_compliance":
+                    if payload.get("workflow") == "sample_submission":
+                        from sample_submission import regenerate_letter
+                        files = regenerate_letter(payload)
+                    elif payload.get("workflow") == "statement_compliance":
                         from statement_compliance import regenerate_statement
                         files = regenerate_statement(payload)
                     elif payload.get("workflow") == "sample_labels":
@@ -417,6 +424,10 @@ if page == "Sample labels":
 if page == "Statement of Compliance":
     from statement_compliance_ui import render_statement_compliance
     render_statement_compliance(store, cloud_mode, download_files)
+
+if page == "Sample submission":
+    from sample_submission_ui import render_sample_submission
+    render_sample_submission(store, cloud_mode, download_files)
 
 if page != "Quotations":
     st.session_state["_quote_editor_visible"] = False

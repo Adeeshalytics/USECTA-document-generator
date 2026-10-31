@@ -290,6 +290,10 @@ def render_statement_compliance(store, cloud_mode, download_files):
                         st.download_button("Download " + ("Word" if extension == ".docx" else "PDF"), output["files"][name],
                             file_name=name, mime=mime, key="soc_download" + extension)
     st.caption("All table entries are centered horizontally and vertically. The signature and seal area remains empty for signing after printing.")
+    if selected:
+        from sample_submission_ui import queue_submission
+        st.button("Prepare sample submission cover letter", key="soc_sample_letter", on_click=queue_submission,
+            args=(supplier_id, reference, deepcopy([draft["items"][number] for number in selected])))
     with st.expander("Editable form template"):
         st.download_button("Download Word template", template_bytes(), file_name="Statement of Compliance template.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document", key="soc_download_template")

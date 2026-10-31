@@ -9,6 +9,7 @@ datas += [(str(root / "assets"), "assets")]
 binaries = []
 hidden = ["documents", "workflows", "cloud_access", "backup_ui", "workspace_archive", "offline_smoke", "desktop_paths", "sample_labels", "sample_labels_ui"]
 hidden += ["statement_compliance", "statement_compliance_ui", "compliance_batches"]
+hidden += ["sample_submission", "sample_submission_ui"]
 for package in ["streamlit", "docxtpl", "docx", "openpyxl", "uvicorn", "websockets", "httptools", "anyio"]:
     package_data, package_binaries, package_hidden = collect_all(package)
     datas += package_data

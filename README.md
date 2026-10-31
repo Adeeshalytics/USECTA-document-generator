@@ -13,6 +13,23 @@ New runs pack separate bordered labels with small gaps onto each sheet. See
 [COMPACT_LABELS_1.0.3.md](COMPACT_LABELS_1.0.3.md) describes the earlier joined layout;
 [SAMPLE_LABELS_1.0.2.md](SAMPLE_LABELS_1.0.2.md) documents the original format.
 
+**Sample submission** creates the supplied USECTA sample-submission cover letter
+with one numbered list containing all selected items. Choose a supplier to load
+their saved compliance items automatically, or use General submission for items
+from multiple suppliers. **Prepare sample submission cover letter** on the
+compliance screen carries across its current item selection and descriptions
+without requiring prices. Edit the sample descriptions, letter date, packs per
+item, quantity note, recipient and signatory. Two sample packs per item and the
+original COA enclosure are preselected from the example; both are editable, and
+the item count / quantity sentence updates automatically. The letter uses the
+existing USECTA letterhead and leaves space for signing and stamping.
+
+**Save letter changes** retains unfinished supplier/tender drafts (or a general
+draft per tender) locally and online. Generate Word/PDF/ZIP downloads and use
+Saved runs to regenerate the original template/data or reopen a letter for
+editing. The template is bundled as `assets/Sample submission cover letter.docx`.
+Long item lists continue naturally onto additional letterheaded pages.
+
 **Statement of Compliance** is a separate sidebar screen for the supplied SPMC
 20-entry form. Choose a supplier and tender, then select **multiple items**.
 Enter manufacturer, bidder, local-agent contacts and common responses once.
